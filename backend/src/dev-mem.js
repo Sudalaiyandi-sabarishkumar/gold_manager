@@ -13,7 +13,7 @@ const { createApp } = require('./app');
 const { connectDb } = require('./config/db');
 const User = require('./models/User');
 const Transaction = require('./models/Transaction');
-const { SAMPLE } = require('./seed');
+const { SAMPLE, buildDoc } = require('./seed');
 
 const PORT = process.env.PORT || 3000;
 
@@ -29,13 +29,7 @@ const PORT = process.env.PORT || 3000;
     { username, passwordHash: await bcrypt.hash(password, 10) },
     { upsert: true }
   );
-  await Transaction.insertMany(
-    SAMPLE.map((t) => ({
-      ...t,
-      date: new Date(t.date),
-      totalAmount: Math.round(t.weightGrams * t.ratePerGram * 100) / 100,
-    }))
-  );
+  await Transaction.insertMany(SAMPLE.map(buildDoc));
   console.log(`[dev-mem] seeded ${username}/${password} + ${SAMPLE.length} transactions`);
 
   const server = createApp().listen(PORT, () => {

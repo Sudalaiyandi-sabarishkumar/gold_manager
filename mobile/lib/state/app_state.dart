@@ -108,16 +108,20 @@ class AppState extends ChangeNotifier {
   Future<GoldTransaction> addTransaction({
     required String type,
     required DateTime date,
+    required String party,
     required double weightGrams,
     required double ratePerGram,
     required String note,
+    required double amountPaid,
   }) async {
     final res = await _api.createTransaction({
       'type': type,
       'date': date.toIso8601String(),
+      'party': party,
       'weightGrams': weightGrams,
       'ratePerGram': ratePerGram,
       'note': note,
+      'amountPaid': amountPaid,
     });
     final txn = GoldTransaction.fromJson(res);
     await refresh();
@@ -126,6 +130,24 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteTransaction(String id) async {
     await _api.deleteTransaction(id);
+    await refresh();
+  }
+
+  /// Records an instalment against a transaction. Throws [ApiException]
+  /// (422 when the amount exceeds what is outstanding).
+  Future<void> addPayment(
+    String transactionId, {
+    required double amount,
+    DateTime? date,
+    String note = '',
+  }) async {
+    await _api.addPayment(transactionId,
+        amount: amount, date: date, note: note);
+    await refresh();
+  }
+
+  Future<void> deletePayment(String transactionId, String paymentId) async {
+    await _api.deletePayment(transactionId, paymentId);
     await refresh();
   }
 }

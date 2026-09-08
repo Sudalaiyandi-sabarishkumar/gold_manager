@@ -2,16 +2,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const { replayStock } = require('../services/stock');
+const { summarizePayments, round2 } = require('../services/payments');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
 
 function serialize(t, perTxn) {
   const extra = perTxn && perTxn.get(String(t._id));
+  const pay = summarizePayments(t);
   return {
     id: String(t._id),
     type: t.type,
     date: t.date,
+    party: t.party || '',
     weightGrams: t.weightGrams,
     ratePerGram: t.ratePerGram,
     totalAmount: t.totalAmount,
@@ -20,6 +23,18 @@ function serialize(t, perTxn) {
     balanceAfter: extra ? extra.balanceAfter : null,
     avgCostAfter: extra ? extra.avgCostAfter : null,
     profit: extra ? extra.profit : null,
+    amountPaid: pay.amountPaid,
+    amountDue: pay.amountDue,
+    paymentStatus: pay.paymentStatus,
+    payments: (t.payments || [])
+      .slice()
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map((p) => ({
+        id: String(p._id),
+        amount: p.amount,
+        date: p.date,
+        note: p.note || '',
+      })),
   };
 }
 
@@ -30,7 +45,10 @@ function byDateDesc(a, b) {
   );
 }
 
-// GET /api/transactions?type=purchase|sale  -> newest first, each with balanceAfter
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+// GET /api/transactions?type=purchase|sale&q=<name/note>&from=<date>&to=<date>
 router.get(
   '/',
   ah(async (req, res) => {
@@ -38,9 +56,32 @@ router.get(
     const { perTxn } = replayStock(all);
 
     let list = all.slice().sort(byDateDesc);
-    if (req.query.type === 'purchase' || req.query.type === 'sale') {
-      list = list.filter((t) => t.type === req.query.type);
+
+    const { type, q, from, to } = req.query;
+    if (type === 'purchase' || type === 'sale') {
+      list = list.filter((t) => t.type === type);
     }
+    if (from) {
+      const f = new Date(from);
+      if (!Number.isNaN(f.getTime())) {
+        list = list.filter((t) => new Date(t.date) >= startOfDay(f));
+      }
+    }
+    if (to) {
+      const tt = new Date(to);
+      if (!Number.isNaN(tt.getTime())) {
+        list = list.filter((t) => new Date(t.date) <= endOfDay(tt));
+      }
+    }
+    if (q && q.trim()) {
+      const needle = q.trim().toLowerCase();
+      list = list.filter(
+        (t) =>
+          (t.party || '').toLowerCase().includes(needle) ||
+          (t.note || '').toLowerCase().includes(needle)
+      );
+    }
+
     res.json(list.map((t) => serialize(t, perTxn)));
   })
 );
@@ -60,11 +101,13 @@ router.get(
   })
 );
 
-// POST /api/transactions  { type, date?, weightGrams, ratePerGram, note? }
+// POST /api/transactions
+// { type, date?, party?, weightGrams, ratePerGram, note?, amountPaid? }
+// amountPaid defaults to the full total; clamp to [0, total].
 router.post(
   '/',
   ah(async (req, res) => {
-    const { type, date, weightGrams, ratePerGram, note } = req.body || {};
+    const { type, date, weightGrams, ratePerGram, note, party, amountPaid } = req.body || {};
 
     if (type !== 'purchase' && type !== 'sale') {
       return res.status(400).json({ error: "type must be 'purchase' or 'sale'" });
@@ -88,18 +131,88 @@ router.post(
       }
     }
 
+    const total = round2(w * r);
+    let paidNow = amountPaid === undefined || amountPaid === null ? total : Number(amountPaid);
+    if (Number.isNaN(paidNow) || paidNow < 0) paidNow = 0;
+    if (paidNow > total) paidNow = total;
+
+    const payments =
+      paidNow > 0.005 ? [{ amount: round2(paidNow), date: when, note: 'Initial payment' }] : [];
+
     const doc = await Transaction.create({
       type,
       date: when,
+      party: (party || '').toString().trim(),
       weightGrams: w,
       ratePerGram: r,
-      totalAmount: Math.round(w * r * 100) / 100,
+      totalAmount: total,
       note: (note || '').toString().trim(),
+      payments,
     });
 
     const all = await Transaction.find().lean();
     const { perTxn } = replayStock(all);
     res.status(201).json(serialize(doc.toObject(), perTxn));
+  })
+);
+
+// POST /api/transactions/:id/payments  { amount, date?, note? }
+router.post(
+  '/:id/payments',
+  ah(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const doc = await Transaction.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+
+    const amt = Number(req.body && req.body.amount);
+    if (!(amt > 0)) return res.status(400).json({ error: 'amount must be greater than 0' });
+
+    const { amountDue } = summarizePayments(doc.toObject());
+    if (amt > amountDue + 0.005) {
+      return res.status(422).json({
+        error: `Only ${amountDue.toFixed(2)} outstanding`,
+        amountDue,
+      });
+    }
+
+    const when = req.body && req.body.date ? new Date(req.body.date) : new Date();
+    if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
+
+    doc.payments.push({
+      amount: round2(amt),
+      date: when,
+      note: ((req.body && req.body.note) || '').toString().trim(),
+    });
+    await doc.save();
+
+    const all = await Transaction.find().lean();
+    const { perTxn } = replayStock(all);
+    res.status(201).json(serialize(doc.toObject(), perTxn));
+  })
+);
+
+// DELETE /api/transactions/:id/payments/:paymentId
+router.delete(
+  '/:id/payments/:paymentId',
+  ah(async (req, res) => {
+    if (
+      !mongoose.isValidObjectId(req.params.id) ||
+      !mongoose.isValidObjectId(req.params.paymentId)
+    ) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const doc = await Transaction.findById(req.params.id);
+    if (!doc || !doc.payments.id(req.params.paymentId)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    doc.payments.pull(req.params.paymentId);
+    await doc.save();
+
+    const all = await Transaction.find().lean();
+    const { perTxn } = replayStock(all);
+    res.json(serialize(doc.toObject(), perTxn));
   })
 );
 

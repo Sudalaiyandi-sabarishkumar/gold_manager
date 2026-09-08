@@ -6,6 +6,8 @@ class StockSummary {
     required this.realizedProfit,
     required this.lastRatePerGram,
     required this.transactionCount,
+    required this.totalReceivable,
+    required this.totalPayable,
   });
 
   final double weightGrams;
@@ -15,6 +17,12 @@ class StockSummary {
   final double lastRatePerGram;
   final int transactionCount;
 
+  /// Buyers owe us this much (unpaid part of sales).
+  final double totalReceivable;
+
+  /// We owe sellers this much (unpaid part of purchases).
+  final double totalPayable;
+
   static const StockSummary empty = StockSummary(
     weightGrams: 0,
     avgCostPerGram: 0,
@@ -22,6 +30,8 @@ class StockSummary {
     realizedProfit: 0,
     lastRatePerGram: 0,
     transactionCount: 0,
+    totalReceivable: 0,
+    totalPayable: 0,
   );
 
   factory StockSummary.fromJson(Map<String, dynamic> j) => StockSummary(
@@ -31,5 +41,7 @@ class StockSummary {
         realizedProfit: (j['realizedProfit'] as num).toDouble(),
         lastRatePerGram: (j['lastRatePerGram'] as num).toDouble(),
         transactionCount: (j['transactionCount'] as num?)?.toInt() ?? 0,
+        totalReceivable: (j['totalReceivable'] as num?)?.toDouble() ?? 0,
+        totalPayable: (j['totalPayable'] as num?)?.toDouble() ?? 0,
       );
 }

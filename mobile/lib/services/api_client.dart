@@ -25,7 +25,9 @@ class ApiClient {
   String? token;
 
   Uri _uri(String path, [Map<String, String>? query]) =>
-      Uri.parse('${AppConfig.apiBaseUrl}$path').replace(queryParameters: query);
+      Uri.parse('${AppConfig.apiBaseUrl}$path').replace(
+        queryParameters: (query == null || query.isEmpty) ? null : query,
+      );
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -55,11 +57,20 @@ class ApiClient {
     return _handle(res) as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> getTransactions({String? type}) async {
-    final res = await _http.get(
-      _uri('/api/transactions', type == null ? null : {'type': type}),
-      headers: _headers,
-    );
+  Future<List<dynamic>> getTransactions({
+    String? type,
+    String? query,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final params = <String, String>{
+      if (type != null) 'type': type,
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      if (from != null) 'from': _ymd(from),
+      if (to != null) 'to': _ymd(to),
+    };
+    final res =
+        await _http.get(_uri('/api/transactions', params), headers: _headers);
     return _handle(res) as List<dynamic>;
   }
 
@@ -78,4 +89,42 @@ class ApiClient {
         await _http.delete(_uri('/api/transactions/$id'), headers: _headers);
     _handle(res);
   }
+
+  Future<Map<String, dynamic>> addPayment(
+    String transactionId, {
+    required double amount,
+    DateTime? date,
+    String note = '',
+  }) async {
+    final res = await _http.post(
+      _uri('/api/transactions/$transactionId/payments'),
+      headers: _headers,
+      body: jsonEncode({
+        'amount': amount,
+        if (date != null) 'date': date.toIso8601String(),
+        'note': note,
+      }),
+    );
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> deletePayment(
+    String transactionId,
+    String paymentId,
+  ) async {
+    final res = await _http.delete(
+      _uri('/api/transactions/$transactionId/payments/$paymentId'),
+      headers: _headers,
+    );
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getOutstanding() async {
+    final res = await _http.get(_uri('/api/outstanding'), headers: _headers);
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  static String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 }

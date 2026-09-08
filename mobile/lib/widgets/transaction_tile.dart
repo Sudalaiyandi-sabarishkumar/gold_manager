@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../theme.dart';
 import '../utils/format.dart';
+import 'payment_status_chip.dart';
 
 class TransactionTile extends StatelessWidget {
   const TransactionTile({
@@ -20,6 +21,14 @@ class TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = <String>[
+      if (txn.party.isNotEmpty) txn.party,
+      if (showBalance && txn.balanceAfter != null)
+        'bal ${grams(txn.balanceAfter!)}'
+      else
+        fmtDate(txn.date),
+    ].join(' · ');
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -39,14 +48,16 @@ class TransactionTile extends StatelessWidget {
                     '${grams(txn.weightGrams)} @ ${inr(txn.ratePerGram)}',
                     style:
                         const TextStyle(fontSize: 13, color: GoldColors.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    showBalance && txn.balanceAfter != null
-                        ? 'bal ${grams(txn.balanceAfter!)}'
-                        : fmtDate(txn.date),
+                    subtitle,
                     style:
                         const TextStyle(fontSize: 11, color: GoldColors.faint),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -60,8 +71,24 @@ class TransactionTile extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w500),
                 ),
-                if (txn.isSale && txn.profit != null) ...[
-                  const SizedBox(height: 2),
+                const SizedBox(height: 3),
+                if (txn.amountDue > 0.005)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'due ${inr(txn.amountDue)}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: GoldColors.loss,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      PaymentStatusChip(status: txn.paymentStatus),
+                    ],
+                  )
+                else if (txn.isSale && txn.profit != null)
                   Text(
                     signedInr(txn.profit!),
                     style: TextStyle(
@@ -70,8 +97,9 @@ class TransactionTile extends StatelessWidget {
                       color:
                           txn.profit! >= 0 ? GoldColors.gain : GoldColors.loss,
                     ),
-                  ),
-                ],
+                  )
+                else
+                  const PaymentStatusChip(status: 'paid'),
               ],
             ),
           ],

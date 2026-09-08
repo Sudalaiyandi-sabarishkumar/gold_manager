@@ -18,28 +18,40 @@ class AddTransactionScreen extends StatefulWidget {
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _form = GlobalKey<FormState>();
+  final _party = TextEditingController();
   final _weight = TextEditingController();
   final _rate = TextEditingController();
+  final _paid = TextEditingController();
   final _note = TextEditingController();
   DateTime _date = DateTime.now();
+  bool _paidInFull = true;
   bool _saving = false;
 
   double get _w => double.tryParse(_weight.text.trim()) ?? 0;
   double get _r => double.tryParse(_rate.text.trim()) ?? 0;
+  double get _total => _w * _r;
+  double get _paidNow {
+    if (_paidInFull) return _total;
+    final v = double.tryParse(_paid.text.trim()) ?? 0;
+    return v.clamp(0, _total).toDouble();
+  }
 
   @override
   void initState() {
     super.initState();
     _weight.addListener(_recalc);
     _rate.addListener(_recalc);
+    _paid.addListener(_recalc);
   }
 
   void _recalc() => setState(() {});
 
   @override
   void dispose() {
+    _party.dispose();
     _weight.dispose();
     _rate.dispose();
+    _paid.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -65,9 +77,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       await context.read<AppState>().addTransaction(
             type: widget.type,
             date: _date,
+            party: _party.text.trim(),
             weightGrams: _w,
             ratePerGram: _r,
             note: _note.text.trim(),
+            amountPaid: _paidNow,
           );
       navigator.pop();
       messenger.showSnackBar(
@@ -84,7 +98,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     } catch (_) {
       setState(() => _saving = false);
       messenger.showSnackBar(
-          const SnackBar(content: Text('Could not reach the server')));
+        const SnackBar(content: Text('Could not reach the server')),
+      );
     }
   }
 
@@ -94,8 +109,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       (s) => (weight: s.stock.weightGrams, avg: s.stock.avgCostPerGram),
     );
     final over = widget.isSale && _w > pool.weight;
-    final total = _w * _r;
     final estProfit = (_r - pool.avg) * _w;
+    final due = (_total - _paidNow).clamp(0, _total).toDouble();
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.isSale ? 'Sell gold' : 'Buy gold')),
@@ -120,6 +135,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            _Label(widget.isSale ? 'BUYER NAME' : 'SELLER NAME'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _party,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(hintText: 'optional'),
             ),
             const SizedBox(height: 16),
             const _Label('WEIGHT (G)'),
@@ -163,7 +186,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               children: [
                 const _Label('TOTAL'),
                 Text(
-                  total > 0 ? inr(total) : '—',
+                  _total > 0 ? inr(_total) : '—',
                   style: const TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w600),
                 ),
@@ -186,16 +209,48 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ],
               ),
             ],
+            const SizedBox(height: 10),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: GoldColors.gold,
+              title: Text(
+                widget.isSale ? 'Received in full' : 'Paid in full',
+                style: const TextStyle(fontSize: 14),
+              ),
+              subtitle: Text(
+                widget.isSale
+                    ? 'Off = buyer still owes a balance'
+                    : 'Off = balance still owed to the seller',
+                style: const TextStyle(fontSize: 11, color: GoldColors.faint),
+              ),
+              value: _paidInFull,
+              onChanged: (v) => setState(() {
+                _paidInFull = v;
+                _paid.text = v || _total <= 0 ? '' : _total.toStringAsFixed(0);
+              }),
+            ),
+            if (!_paidInFull) ...[
+              const SizedBox(height: 6),
+              _Label(widget.isSale ? 'AMOUNT RECEIVED NOW' : 'AMOUNT PAID NOW'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _paid,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  hintText: '0',
+                  helperText: 'Balance due ${inr(due)}',
+                  helperStyle: const TextStyle(color: GoldColors.loss),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             const _Label('NOTE'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _note,
               textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText:
-                    widget.isSale ? 'buyer, invoice no.' : 'supplier, bill no.',
-              ),
+              decoration: const InputDecoration(hintText: 'bill no., remarks'),
             ),
             const SizedBox(height: 26),
             FilledButton(

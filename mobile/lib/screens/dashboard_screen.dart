@@ -9,6 +9,7 @@ import '../widgets/stock_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'add_transaction_screen.dart';
 import 'history_screen.dart';
+import 'outstanding_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -52,6 +53,36 @@ class DashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
             StockCard(stock: state.stock),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MoneyCard(
+                    label: 'RECEIVABLE',
+                    caption: 'buyers owe you',
+                    value: state.stock.totalReceivable,
+                    color: GoldColors.gain,
+                    onTap: () => _open(
+                      context,
+                      const OutstandingScreen(initialSide: 'receivable'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MoneyCard(
+                    label: 'PAYABLE',
+                    caption: 'you owe sellers',
+                    value: state.stock.totalPayable,
+                    color: GoldColors.loss,
+                    onTap: () => _open(
+                      context,
+                      const OutstandingScreen(initialSide: 'payable'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -182,6 +213,79 @@ class _ErrorBlock extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
         ],
+      ),
+    );
+  }
+}
+
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard({
+    required this.label,
+    required this.caption,
+    required this.value,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final String caption;
+  final double value;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: GoldColors.surface2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: GoldColors.hairline),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9.5,
+                letterSpacing: 1.4,
+                color: GoldColors.muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                inr(value),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    caption,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: GoldColors.faint),
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 14, color: GoldColors.muted),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

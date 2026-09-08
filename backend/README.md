@@ -31,13 +31,27 @@ All routes except `POST /api/auth/login` require `Authorization: Bearer <token>`
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | `{ username, password }` | `{ token, user }` — 401 on mismatch |
-| GET | `/api/stock` | — | `{ weightGrams, avgCostPerGram, stockValue, realizedProfit, lastRatePerGram, transactionCount }` |
-| GET | `/api/transactions` | `?type=purchase\|sale` | array, newest first, each with `balanceAfter` |
-| POST | `/api/transactions` | `{ type, date?, weightGrams, ratePerGram, note? }` | created row — **422** if a sale exceeds stock |
-| GET | `/api/transactions/:id` | — | one row with `balanceAfter` |
+| GET | `/api/stock` | — | `{ weightGrams, avgCostPerGram, stockValue, realizedProfit, lastRatePerGram, transactionCount, totalReceivable, totalPayable }` |
+| GET | `/api/transactions` | `?type=purchase\|sale` `&q=<name/note>` `&from=<date>` `&to=<date>` | array, newest first, each with `balanceAfter`, `party`, `amountPaid`, `amountDue`, `paymentStatus`, `payments[]` |
+| POST | `/api/transactions` | `{ type, date?, party?, weightGrams, ratePerGram, note?, amountPaid? }` | created row — **422** if a sale exceeds stock. `amountPaid` defaults to the full total |
+| GET | `/api/transactions/:id` | — | one row |
 | DELETE | `/api/transactions/:id` | — | `{ ok: true }` |
+| POST | `/api/transactions/:id/payments` | `{ amount, date?, note? }` | updated row — **422** if `amount` exceeds what is outstanding |
+| DELETE | `/api/transactions/:id/payments/:paymentId` | — | updated row |
+| GET | `/api/outstanding` | — | `{ totalReceivable, totalPayable, receivables[], payables[] }` grouped by party |
 
 `totalAmount` is always computed server-side as `weightGrams * ratePerGram`.
+`amountPaid` / `amountDue` / `paymentStatus` are derived from the `payments`
+list (see `src/services/payments.js`); payments never affect stock or profit.
+
+### Migrating existing data
+
+The party/payments fields were added later. Mark pre-existing transactions as
+paid in full (non-destructive, safe to re-run):
+
+```bash
+node src/migrate-payments.js
+```
 
 ## Stock math
 
