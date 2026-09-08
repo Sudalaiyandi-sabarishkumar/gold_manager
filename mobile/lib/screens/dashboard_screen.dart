@@ -9,7 +9,9 @@ import '../widgets/stock_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'add_transaction_screen.dart';
 import 'history_screen.dart';
+import 'loans_screen.dart';
 import 'outstanding_screen.dart';
+import 'settings_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -39,11 +41,23 @@ class DashboardScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            tooltip: 'Log out',
-            icon: const Icon(Icons.logout, size: 20),
-            onPressed: () => context.read<AppState>().logout(),
+            tooltip: 'Loans',
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 20),
+            onPressed: () => _open(context, const LoansScreen()),
           ),
-          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            color: GoldColors.surface,
+            onSelected: (v) {
+              if (v == 'settings') _open(context, const SettingsScreen());
+              if (v == 'logout') context.read<AppState>().logout();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'settings', child: Text('Opening balances')),
+              PopupMenuItem(value: 'logout', child: Text('Log out')),
+            ],
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
@@ -83,6 +97,14 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ],
             ),
+            if (state.stock.loanCashOutstanding > 0.5 ||
+                state.stock.loanGoldOutstandingGrams > 0.0005) ...[
+              const SizedBox(height: 10),
+              _LoansOutRow(
+                stock: state.stock,
+                onTap: () => _open(context, const LoansScreen()),
+              ),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [
@@ -144,6 +166,14 @@ class DashboardScreen extends StatelessWidget {
               ),
             const SizedBox(height: 18),
             _RealizedRow(value: state.stock.realizedProfit),
+            if (state.stock.interestEarnedCash > 0.5 ||
+                state.stock.interestEarnedGoldGrams > 0.0005) ...[
+              const SizedBox(height: 8),
+              _SummaryRow(
+                label: 'LOAN INTEREST EARNED',
+                value: _interestEarnedText(state.stock),
+              ),
+            ],
           ],
         ),
       ),
@@ -167,9 +197,28 @@ class _Eyebrow extends StatelessWidget {
       );
 }
 
+String _interestEarnedText(dynamic stock) {
+  final parts = <String>[];
+  if (stock.interestEarnedCash > 0.5) parts.add(inr(stock.interestEarnedCash));
+  if (stock.interestEarnedGoldGrams > 0.0005) {
+    parts.add(grams(stock.interestEarnedGoldGrams));
+  }
+  return parts.join('  +  ');
+}
+
 class _RealizedRow extends StatelessWidget {
   const _RealizedRow({required this.value});
   final double value;
+
+  @override
+  Widget build(BuildContext context) =>
+      _SummaryRow(label: 'REALIZED PROFIT', value: inr(value));
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -183,9 +232,9 @@ class _RealizedRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const _Eyebrow('REALIZED PROFIT'),
+          _Eyebrow(label),
           Text(
-            inr(value),
+            value,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -193,6 +242,54 @@ class _RealizedRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoansOutRow extends StatelessWidget {
+  const _LoansOutRow({required this.stock, required this.onTap});
+  final dynamic stock;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bits = <String>[];
+    if (stock.loanCashOutstanding > 0.5) {
+      bits.add(inr(stock.loanCashOutstanding));
+    }
+    if (stock.loanGoldOutstandingGrams > 0.0005) {
+      bits.add(grams(stock.loanGoldOutstandingGrams));
+    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: GoldColors.surface2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: GoldColors.hairline),
+        ),
+        child: Row(
+          children: [
+            const _Eyebrow('LOANS OUT'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                bits.join('  +  '),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: GoldColors.loss,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: GoldColors.muted),
+          ],
+        ),
       ),
     );
   }

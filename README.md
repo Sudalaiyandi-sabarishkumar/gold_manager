@@ -12,6 +12,14 @@ A gold **sale & purchase** manager for one operator.
   **Receivable** / **Payable** total. Record what they paid once and tick which bills
   it covers — no need to open each transaction. Names are picked from a dropdown of
   those already used and grouped case-insensitively, so one person stays one row.
+- **Loans** — lend cash (interest per day) or gold (interest per month), each with a
+  "count the start day" toggle. Interest = principal ÷ reference × rate × periods,
+  accruing continuously (a month = 30 days). Repaid in one go on a chosen date;
+  principal + interest returns to your position.
+- **Opening balances + one position** — you start with an opening cash and gold
+  amount (editable). **Cash in hand** and **gold in stock** then flow through
+  everything: purchases, sales, bill payments, loans out and loan repayments. Trade
+  weighted-average cost and profit still come from buy/sell only.
 - **Login** — single credential `mani` / `1977`.
 - **Theme** — yellow on black.
 - **Stack** — Flutter (mobile) · Node/Express (API) · MongoDB.

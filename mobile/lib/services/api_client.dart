@@ -158,6 +158,68 @@ class ApiClient {
     _handle(res);
   }
 
+  // ---- loans ----
+
+  Future<List<dynamic>> getLoans(
+      {String? status, String? kind, String? query}) async {
+    final params = <String, String>{
+      if (status != null) 'status': status,
+      if (kind != null) 'kind': kind,
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+    };
+    final res =
+        await _guard(_http.get(_uri('/api/loans', params), headers: _headers));
+    return _handle(res) as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createLoan(Map<String, dynamic> payload) async {
+    final res = await _guard(_http.post(
+      _uri('/api/loans'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    ));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> repayLoan(
+      String id, Map<String, dynamic> body) async {
+    final res = await _guard(_http.post(
+      _uri('/api/loans/$id/repay'),
+      headers: _headers,
+      body: jsonEncode(body),
+    ));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<void> reopenLoan(String id) async {
+    final res = await _guard(
+        _http.delete(_uri('/api/loans/$id/repay'), headers: _headers));
+    _handle(res);
+  }
+
+  Future<void> deleteLoan(String id) async {
+    final res =
+        await _guard(_http.delete(_uri('/api/loans/$id'), headers: _headers));
+    _handle(res);
+  }
+
+  // ---- settings ----
+
+  Future<Map<String, dynamic>> getSettings() async {
+    final res =
+        await _guard(_http.get(_uri('/api/settings'), headers: _headers));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> body) async {
+    final res = await _guard(_http.put(
+      _uri('/api/settings'),
+      headers: _headers,
+      body: jsonEncode(body),
+    ));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
   static String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';

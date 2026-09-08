@@ -1,8 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
+const Loan = require('../models/Loan');
+const Settings = require('../models/Settings');
 const { replayStock } = require('../services/stock');
 const { summarizePayments, round2 } = require('../services/payments');
+const { computeBalances } = require('../services/balances');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
@@ -133,11 +136,20 @@ router.post(
     if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
 
     if (type === 'sale') {
-      const all = await Transaction.find().lean();
-      const available = replayStock(all).weightGrams;
+      const [settings, all, loans] = await Promise.all([
+        Settings.current(),
+        Transaction.find().lean(),
+        Loan.find().lean(),
+      ]);
+      const available = computeBalances({
+        openingCash: settings.openingCash,
+        openingGoldGrams: settings.openingGoldGrams,
+        transactions: all,
+        loans,
+      }).goldInStockGrams;
       if (w > available + 1e-9) {
         return res.status(422).json({
-          error: `Only ${available.toFixed(2)} g available`,
+          error: `Only ${available.toFixed(2)} g in stock`,
           availableGrams: available,
         });
       }

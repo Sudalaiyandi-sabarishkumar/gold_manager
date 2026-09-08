@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/loan.dart';
+import '../models/settings.dart';
 import '../models/stock.dart';
 import '../models/transaction.dart';
 import '../services/api_client.dart';
@@ -21,6 +23,8 @@ class AppState extends ChangeNotifier {
   AuthStatus status = AuthStatus.unknown;
   StockSummary stock = StockSummary.empty;
   List<GoldTransaction> transactions = const [];
+  List<Loan> loans = const [];
+  AppSettings settings = AppSettings.empty;
   bool loading = false;
   String? error;
 
@@ -69,6 +73,8 @@ class AppState extends ChangeNotifier {
     status = AuthStatus.signedOut;
     stock = StockSummary.empty;
     transactions = const [];
+    loans = const [];
+    settings = AppSettings.empty;
     error = null;
     notifyListeners();
   }
@@ -81,11 +87,17 @@ class AppState extends ChangeNotifier {
       final results = await Future.wait<dynamic>([
         _api.getStock(),
         _api.getTransactions(),
+        _api.getLoans(),
+        _api.getSettings(),
       ]);
       stock = StockSummary.fromJson(results[0] as Map<String, dynamic>);
       transactions = (results[1] as List<dynamic>)
           .map((e) => GoldTransaction.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
+      loans = (results[2] as List<dynamic>)
+          .map((e) => Loan.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
+      settings = AppSettings.fromJson(results[3] as Map<String, dynamic>);
       loading = false;
       notifyListeners();
     } on ApiException catch (e) {
@@ -158,14 +170,54 @@ class AppState extends ChangeNotifier {
     await refresh();
   }
 
-  /// Distinct party names already used, case-insensitive, keeping the first
-  /// spelling seen. Feeds the name dropdown on the transaction form.
+  // ---- loans ----
+
+  Future<Loan> createLoan(Map<String, dynamic> payload) async {
+    final res = await _api.createLoan(payload);
+    final loan = Loan.fromJson(res);
+    await refresh();
+    return loan;
+  }
+
+  Future<void> repayLoan(String id, Map<String, dynamic> body) async {
+    await _api.repayLoan(id, body);
+    await refresh();
+  }
+
+  Future<void> reopenLoan(String id) async {
+    await _api.reopenLoan(id);
+    await refresh();
+  }
+
+  Future<void> deleteLoan(String id) async {
+    await _api.deleteLoan(id);
+    await refresh();
+  }
+
+  Future<void> updateSettings(
+      {double? openingCash, double? openingGoldGrams}) async {
+    await _api.updateSettings({
+      if (openingCash != null) 'openingCash': openingCash,
+      if (openingGoldGrams != null) 'openingGoldGrams': openingGoldGrams,
+    });
+    await refresh();
+  }
+
+  /// Distinct party names already used across transactions and loans,
+  /// case-insensitive, keeping the first spelling seen. Feeds the name dropdowns.
   List<String> get partyNames {
     final seen = <String, String>{};
+    void add(String raw) {
+      final v = raw.trim();
+      if (v.isEmpty) return;
+      seen.putIfAbsent(v.toLowerCase(), () => v);
+    }
+
     for (final t in transactions) {
-      final raw = t.party.trim();
-      if (raw.isEmpty) continue;
-      seen.putIfAbsent(raw.toLowerCase(), () => raw);
+      add(t.party);
+    }
+    for (final l in loans) {
+      add(l.party);
     }
     final names = seen.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));

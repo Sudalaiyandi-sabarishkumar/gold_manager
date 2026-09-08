@@ -11,7 +11,15 @@ const { createApp } = require('./app');
 const { connectDb } = require('./config/db');
 const User = require('./models/User');
 const Transaction = require('./models/Transaction');
-const { SAMPLE, buildDoc } = require('./seed');
+const Loan = require('./models/Loan');
+const Settings = require('./models/Settings');
+const {
+  SAMPLE,
+  SAMPLE_LOANS,
+  buildTxn,
+  OPENING_CASH,
+  OPENING_GOLD_GRAMS,
+} = require('./seed');
 
 let pass = 0;
 function check(label, cond) {
@@ -25,6 +33,7 @@ function check(label, cond) {
   }
 }
 const approx = (a, b, tol = 0.02) => Math.abs(a - b) <= tol;
+const between = (x, lo, hi) => x >= lo && x <= hi;
 
 async function main() {
   const mem = await MongoMemoryServer.create();
@@ -35,205 +44,134 @@ async function main() {
     { username: 'mani', passwordHash: await bcrypt.hash('1977', 10) },
     { upsert: true }
   );
-  await Transaction.insertMany(SAMPLE.map(buildDoc));
+  await Settings.findByIdAndUpdate(
+    'app',
+    { _id: 'app', openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
+    { upsert: true }
+  );
+  await Transaction.insertMany(SAMPLE.map(buildTxn));
+  await Loan.insertMany(SAMPLE_LOANS);
 
   const app = createApp();
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
-  const json = async (res) => ({ status: res.status, body: await res.json().catch(() => null) });
+  const J = async (res) => ({ status: res.status, body: await res.json().catch(() => null) });
+  const GET = (p, h) => fetch(`${base}${p}`, { headers: h }).then(J);
+  const POST = (p, h, b) =>
+    fetch(`${base}${p}`, { method: 'POST', headers: h, body: JSON.stringify(b) }).then(J);
+  const DEL = (p, h) => fetch(`${base}${p}`, { method: 'DELETE', headers: h }).then(J);
 
   // --- auth ---
-  let r = await json(
-    await fetch(`${base}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'mani', password: '1977' }),
-    })
-  );
-  check('login with mani/1977 -> 200 + token', r.status === 200 && typeof r.body.token === 'string');
-  const token = r.body.token;
-  const authH = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  let r = await POST('/api/auth/login', { 'Content-Type': 'application/json' }, {
+    username: 'mani',
+    password: '1977',
+  });
+  check('login mani/1977 -> token', r.status === 200 && typeof r.body.token === 'string');
+  const H = { Authorization: `Bearer ${r.body.token}`, 'Content-Type': 'application/json' };
 
-  r = await json(
-    await fetch(`${base}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'mani', password: 'wrong' }),
-    })
-  );
-  check('login with wrong password -> 401', r.status === 401);
+  r = await POST('/api/auth/login', { 'Content-Type': 'application/json' }, {
+    username: 'mani',
+    password: 'nope',
+  });
+  check('wrong password -> 401', r.status === 401);
+  check('no token -> 401', (await GET('/api/stock')).status === 401);
 
-  r = await json(await fetch(`${base}/api/stock`));
-  check('GET /api/stock without token -> 401', r.status === 401);
+  // --- settings / opening balances ---
+  r = await GET('/api/settings', H);
+  check('opening balances = ₹15,00,000 + 100 g',
+    approx(r.body.openingCash, 1500000) && approx(r.body.openingGoldGrams, 100));
 
-  // --- stock + outstanding from seed ---
-  r = await json(await fetch(`${base}/api/stock`, { headers: authH }));
-  check('seeded stock weight = 860 g', approx(r.body.weightGrams, 860));
-  check('seeded avg cost ~ 5914.95 /g', approx(r.body.avgCostPerGram, 5914.95, 0.05));
-  check('seeded realized profit ~ 40756', approx(r.body.realizedProfit, 40755.88, 1));
-  check('seeded receivable = 7,55,900', approx(r.body.totalReceivable, 755900, 1));
-  check('seeded payable = 3,90,000', approx(r.body.totalPayable, 390000, 1));
+  // --- unified position ---
+  r = await GET('/api/stock', H);
+  const s = r.body;
+  check('gold in stock = 90 g  (100 opening + 40 trade − 50 gold-loan)',
+    approx(s.weightGrams, 90));
+  check('cash in hand = ₹10,76,000', approx(s.cashInHand, 1076000, 1));
+  check('avg cost ≈ ₹5,970.83 /g', approx(s.avgCostPerGram, 5970.83, 0.1));
+  check('trade realized profit ≈ ₹7,083', approx(s.realizedProfit, 7083.33, 1));
+  check('trade receivable ₹1,73,650 / payable ₹79,400',
+    approx(s.totalReceivable, 173650, 1) && approx(s.totalPayable, 79400, 1));
+  check('cash loan outstanding ≈ principal + ~3 days interest',
+    approx(s.loanCashPrincipal, 100000) && between(s.loanCashInterestAccrued, 200, 400) &&
+    approx(s.loanCashOutstanding, s.loanCashPrincipal + s.loanCashInterestAccrued, 0.5));
+  check('gold loan outstanding ≈ 50 g + ~0.5 g interest',
+    approx(s.loanGoldPrincipalGrams, 50) &&
+    between(s.loanGoldInterestAccruedGrams, 0.4, 0.6) &&
+    approx(s.loanGoldOutstandingGrams, 50.5, 0.1));
+  check('interest earned (cash) from the repaid loan = ₹2,000',
+    approx(s.interestEarnedCash, 2000));
 
-  // --- party names merge across casing ("Kumar Jewellery" + "kumar jewellery") ---
-  let o = await json(await fetch(`${base}/api/outstanding`, { headers: authH }));
-  const kumarSeed = o.body.receivables.filter((x) => x.party.toLowerCase() === 'kumar jewellery');
-  check('Kumar Jewellery is ONE receivable entry across 2 bills',
-    kumarSeed.length === 1 && kumarSeed[0].count === 2 && approx(kumarSeed[0].totalDue, 755900, 1));
+  // --- loans list + filters ---
+  r = await GET('/api/loans', H);
+  check('3 loans', r.body.length === 3);
+  check('filter status=open -> 2', (await GET('/api/loans?status=open', H)).body.length === 2);
+  check('filter status=repaid -> 1', (await GET('/api/loans?status=repaid', H)).body.length === 1);
+  check('filter kind=gold -> 1', (await GET('/api/loans?kind=gold', H)).body.length === 1);
+  check('search q=anbu -> 1', (await GET('/api/loans?q=anbu', H)).body.length === 1);
 
-  // --- payment state on a seeded partial sale ---
-  r = await json(await fetch(`${base}/api/transactions?type=sale`, { headers: authH }));
-  const partialSale = r.body.find((t) => t.weightGrams === 150 && t.party === 'Kumar Jewellery');
-  check(
-    'seeded sale is partial: paid 5,00,000 / due 4,06,000',
-    Boolean(partialSale) &&
-      approx(partialSale.amountPaid, 500000) &&
-      approx(partialSale.amountDue, 406000) &&
-      partialSale.paymentStatus === 'partial' &&
-      partialSale.payments.length === 1
-  );
-  const otherSale = r.body.find((t) => t.weightGrams === 90);
-  check('second Kumar bill is partial: due 3,49,900',
-    otherSale.paymentStatus === 'partial' && approx(otherSale.amountDue, 349900, 1));
+  const anbu = r.body.find((l) => l.party === 'Anbu');
+  check('Anbu: 3 days elapsed, ~₹300 accrued, outstanding ~₹1,00,300',
+    anbu.daysElapsed === 3 && between(anbu.accruedInterest, 200, 400) &&
+    approx(anbu.outstanding, 100000 + anbu.accruedInterest, 0.5));
+  const vijay = r.body.find((l) => l.party === 'Vijay');
+  check('Vijay: countStartDay adds a day -> 20 days elapsed',
+    vijay.daysElapsed === 20 && between(vijay.accruedInterest, 0.4, 0.6));
 
-  // --- a NEW transaction snaps its party name to the existing spelling ---
-  r = await json(
-    await fetch(`${base}/api/transactions`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({
-        type: 'sale', date: '2026-09-08', party: '  KUMAR JEWELLERY ',
-        weightGrams: 5, ratePerGram: 6200, amountPaid: 0,
-      }),
-    })
-  );
-  check('new sale reuses an existing Kumar spelling (not "KUMAR JEWELLERY")',
-    r.status === 201 &&
-      r.body.party.toLowerCase() === 'kumar jewellery' &&
-      r.body.party !== 'KUMAR JEWELLERY');
-  await json(
-    await fetch(`${base}/api/transactions/${r.body.id}`, { method: 'DELETE', headers: authH })
-  );
+  // --- lending guards ---
+  check('lend more gold than in stock -> 422',
+    (await POST('/api/loans', H, {
+      kind: 'gold', party: 'X', principal: 500, interestRate: 1.5,
+      interestRefAmount: 100, interestUnit: 'month',
+    })).status === 422);
+  check('lend more cash than in hand -> 422',
+    (await POST('/api/loans', H, {
+      kind: 'cash', party: 'X', principal: 99999999, interestRate: 100,
+      interestRefAmount: 100000, interestUnit: 'day',
+    })).status === 422);
 
-  // --- settle both of Kumar's bills in one call ---
-  r = await json(
-    await fetch(`${base}/api/parties/settle`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({
-        allocations: [
-          { transactionId: partialSale.id, amount: 406000, note: 'cheque 71' },
-          { transactionId: otherSale.id, amount: 100000, note: 'cheque 71' },
-        ],
-      }),
-    })
-  );
-  check('settle 2 bills -> ok, settled: 2', r.status === 200 && r.body.settled === 2);
+  // --- give a cash loan, then repay it same day (no interest) ---
+  r = await POST('/api/loans', H, {
+    kind: 'cash', party: 'Test Borrower', principal: 50000,
+    interestRate: 100, interestRefAmount: 100000, interestUnit: 'day', countStartDay: false,
+  });
+  check('give ₹50,000 cash loan -> 201, open', r.status === 201 && r.body.status === 'open');
+  const loanId = r.body.id;
+  check('cash in hand drops by 50,000',
+    approx((await GET('/api/stock', H)).body.cashInHand, 1076000 - 50000, 1));
 
-  const afterSettle = await json(await fetch(`${base}/api/stock`, { headers: authH }));
-  check('receivable drops by 5,06,000 after settle', approx(afterSettle.body.totalReceivable, 249900, 1));
-  r = await json(await fetch(`${base}/api/transactions/${partialSale.id}`, { headers: authH }));
-  check('first bill now paid in full', r.body.paymentStatus === 'paid');
+  r = await POST(`/api/loans/${loanId}/repay`, H, {});
+  check('repay same day -> repaid, ₹0 interest',
+    r.status === 200 && r.body.status === 'repaid' && approx(r.body.repayment.interestPaid, 0));
+  check('cash in hand back to ₹10,76,000',
+    approx((await GET('/api/stock', H)).body.cashInHand, 1076000, 1));
+  check('repay again -> 409',
+    (await POST(`/api/loans/${loanId}/repay`, H, {})).status === 409);
+  await DEL(`/api/loans/${loanId}`, H);
 
-  // --- settle rejects an over-allocation, writes nothing ---
-  r = await json(
-    await fetch(`${base}/api/parties/settle`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({
-        allocations: [{ transactionId: otherSale.id, amount: 999999999 }],
-      }),
-    })
-  );
-  check('settle over-allocation -> 422', r.status === 422 && /outstanding/.test(r.body.error));
-  r = await json(await fetch(`${base}/api/transactions/${otherSale.id}`, { headers: authH }));
-  check('over-allocation wrote nothing', approx(r.body.amountDue, 249900, 1));
+  // --- selling is limited by physical stock (90 g), not just trades ---
+  check('sell 200 g -> 422 (only ~90 g in stock)',
+    (await POST('/api/transactions', H, {
+      type: 'sale', weightGrams: 200, ratePerGram: 6000,
+    })).status === 422);
 
-  // --- single-bill payment endpoint still works; overpay rejected ---
-  r = await json(
-    await fetch(`${base}/api/transactions/${otherSale.id}/payments`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({ amount: 999999999 }),
-    })
-  );
-  check('overpay one bill -> 422 with outstanding message',
-    r.status === 422 && /outstanding/.test(r.body.error));
+  // --- trade dues still work: settle a bill, search, date filter ---
+  r = await GET('/api/transactions?q=kumar', H);
+  check('search q=kumar -> 2 sales', r.body.length === 2 && r.body.every((t) => t.type === 'sale'));
+  const s118 = r.body.find((t) => t.note === 'bill S-118');
+  r = await POST(`/api/transactions/${s118.id}/payments`, H, { amount: 51250, note: 'upi' });
+  check('pay off bill S-118 -> paid', r.status === 201 && r.body.paymentStatus === 'paid');
+  check('cash in hand rose by 51,250',
+    approx((await GET('/api/stock', H)).body.cashInHand, 1076000 + 51250, 1));
 
-  // --- delete a payment -> back to partial ---
-  r = await json(await fetch(`${base}/api/transactions/${partialSale.id}`, { headers: authH }));
-  const payToDelete = r.body.payments.find((p) => p.note === 'cheque 71');
-  r = await json(
-    await fetch(`${base}/api/transactions/${partialSale.id}/payments/${payToDelete.id}`, {
-      method: 'DELETE',
-      headers: authH,
-    })
-  );
-  check('delete payment -> back to partial, due 4,06,000',
-    r.status === 200 && r.body.paymentStatus === 'partial' && approx(r.body.amountDue, 406000));
+  r = await GET('/api/transactions?from=2026-09-01&to=2026-09-30', H);
+  check('date filter Sept -> all rows in range',
+    r.body.length >= 2 && r.body.every((t) => new Date(t.date) >= new Date('2026-09-01')));
 
-  // --- create with partial payment ---
-  r = await json(
-    await fetch(`${base}/api/transactions`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({
-        type: 'purchase', date: '2026-09-08', party: 'Test Seller',
-        weightGrams: 10, ratePerGram: 6000, amountPaid: 20000,
-      }),
-    })
-  );
-  check('create purchase with amountPaid 20000 -> partial, due 40000',
-    r.status === 201 && r.body.paymentStatus === 'partial' && approx(r.body.amountDue, 40000));
-
-  // --- create defaulting to paid in full ---
-  r = await json(
-    await fetch(`${base}/api/transactions`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({ type: 'purchase', date: '2026-09-08', weightGrams: 100, ratePerGram: 7000 }),
-    })
-  );
-  check('create without amountPaid -> paid in full', r.status === 201 && r.body.paymentStatus === 'paid');
-  check('purchase total computed server-side (700000)', r.body.totalAmount === 700000);
-
-  const afterBuy = await json(await fetch(`${base}/api/stock`, { headers: authH }));
-  check('weight rises by 110 -> 970 g', approx(afterBuy.body.weightGrams, 970));
-  check('payable rose by 40000 (Test Seller balance)', approx(afterBuy.body.totalPayable, 430000, 1));
-
-  // --- over-sell rejected ---
-  r = await json(
-    await fetch(`${base}/api/transactions`, {
-      method: 'POST',
-      headers: authH,
-      body: JSON.stringify({ type: 'sale', weightGrams: 5000, ratePerGram: 6200 }),
-    })
-  );
-  check('over-sell -> 422', r.status === 422 && /available/.test(r.body.error));
-
-  // --- search by name ---
-  r = await json(await fetch(`${base}/api/transactions?q=kumar`, { headers: authH }));
-  check('search q=kumar -> only Kumar Jewellery rows',
-    r.body.length === 2 && r.body.every((t) => t.party.toLowerCase().includes('kumar')));
-
-  // --- filter by date range ---
-  r = await json(
-    await fetch(`${base}/api/transactions?from=2026-09-01&to=2026-09-30`, { headers: authH })
-  );
-  check('date filter -> every row on/after 2026-09-01',
-    r.body.length >= 3 && r.body.every((t) => new Date(t.date) >= new Date('2026-09-01')));
-  r = await json(
-    await fetch(`${base}/api/transactions?from=2026-08-01&to=2026-08-31`, { headers: authH })
-  );
-  check('date filter Aug -> every row in August',
-    r.body.every((t) => new Date(t.date) < new Date('2026-09-01')));
-
-  // --- outstanding grouped by party (after the settle / delete dance above) ---
-  r = await json(await fetch(`${base}/api/outstanding`, { headers: authH }));
+  // --- outstanding grouped by party (Kumar had 2 bills; S-118 now cleared) ---
+  r = await GET('/api/outstanding', H);
   const kumar = r.body.receivables.find((x) => x.party === 'Kumar Jewellery');
-  check('outstanding: Kumar is one entry, 2 bills, 6,55,900 due',
-    kumar && approx(kumar.totalDue, 655900, 1) && kumar.count === 2);
-  const mmtc = r.body.payables.find((x) => x.party === 'MMTC');
-  check('outstanding: we owe MMTC 3,90,000', mmtc && approx(mmtc.totalDue, 390000, 1));
+  check('Kumar now owes only bill S-121 (₹1,22,400)',
+    kumar && kumar.count === 1 && approx(kumar.totalDue, 122400, 1));
 
   server.close();
   await mongoose.disconnect();

@@ -13,7 +13,15 @@ const { createApp } = require('./app');
 const { connectDb } = require('./config/db');
 const User = require('./models/User');
 const Transaction = require('./models/Transaction');
-const { SAMPLE, buildDoc } = require('./seed');
+const Loan = require('./models/Loan');
+const Settings = require('./models/Settings');
+const {
+  SAMPLE,
+  SAMPLE_LOANS,
+  buildTxn,
+  OPENING_CASH,
+  OPENING_GOLD_GRAMS,
+} = require('./seed');
 
 const PORT = process.env.PORT || 3000;
 
@@ -29,8 +37,16 @@ const PORT = process.env.PORT || 3000;
     { username, passwordHash: await bcrypt.hash(password, 10) },
     { upsert: true }
   );
-  await Transaction.insertMany(SAMPLE.map(buildDoc));
-  console.log(`[dev-mem] seeded ${username}/${password} + ${SAMPLE.length} transactions`);
+  await Settings.findByIdAndUpdate(
+    'app',
+    { _id: 'app', openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
+    { upsert: true }
+  );
+  await Transaction.insertMany(SAMPLE.map(buildTxn));
+  await Loan.insertMany(SAMPLE_LOANS);
+  console.log(
+    `[dev-mem] seeded ${username}/${password} + ${SAMPLE.length} transactions + ${SAMPLE_LOANS.length} loans`
+  );
 
   const server = createApp().listen(PORT, () => {
     console.log(`[dev-mem] API on http://localhost:${PORT}  (in-memory Mongo — not persisted)`);

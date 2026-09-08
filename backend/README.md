@@ -31,7 +31,14 @@ All routes except `POST /api/auth/login` require `Authorization: Bearer <token>`
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | `{ username, password }` | `{ token, user }` — 401 on mismatch |
-| GET | `/api/stock` | — | `{ weightGrams, avgCostPerGram, stockValue, realizedProfit, lastRatePerGram, transactionCount, totalReceivable, totalPayable }` |
+| GET | `/api/settings` | — | `{ openingCash, openingGoldGrams }` |
+| PUT | `/api/settings` | `{ openingCash?, openingGoldGrams? }` | updated settings |
+| GET | `/api/stock` | — | unified position: `cashInHand`, `weightGrams` (gold in stock), `openingCash`, `openingGoldGrams`, `avgCostPerGram`, `stockValue`, `realizedProfit`, `totalReceivable`, `totalPayable`, `loanCash*`, `loanGold*`, `interestEarned*` |
+| GET | `/api/loans` | `?status=open\|repaid` `&kind=cash\|gold` `&q=` | loans, each with `daysElapsed`, `accruedInterest`, `outstanding` |
+| POST | `/api/loans` | `{ kind, party?, date?, principal, interestRate, interestRefAmount, interestUnit, countStartDay?, note? }` | created loan — **422** if principal exceeds cash in hand / gold in stock |
+| POST | `/api/loans/:id/repay` | `{ date?, principalReturned?, interestPaid? }` | loan marked repaid (interest defaults to accrued) — 409 if already repaid |
+| DELETE | `/api/loans/:id/repay` | — | reopen |
+| DELETE | `/api/loans/:id` | — | `{ ok: true }` |
 | GET | `/api/transactions` | `?type=purchase\|sale` `&q=<name/note>` `&from=<date>` `&to=<date>` | array, newest first, each with `balanceAfter`, `party`, `amountPaid`, `amountDue`, `paymentStatus`, `payments[]` |
 | POST | `/api/transactions` | `{ type, date?, party?, weightGrams, ratePerGram, note?, amountPaid? }` | created row — **422** if a sale exceeds stock. `amountPaid` defaults to the full total |
 | GET | `/api/transactions/:id` | — | one row |
