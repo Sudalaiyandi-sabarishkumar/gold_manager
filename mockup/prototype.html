@@ -1,0 +1,617 @@
+<title>Gold Manager</title>
+<meta name="description" content="Screen prototype for a gold sale & purchase manager — stock, ledger, yellow on black.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0d0b07;
+    --surface:#181410;
+    --surface-2:#211b13;
+    --raise:#2b2318;
+    --hairline:#3a2f1e;
+    --gold:#f5c518;
+    --gold-deep:#c9a227;
+    --gold-ink:#241a02;
+    --text:#f6f1e4;
+    --muted:#a99e86;
+    --faint:#7c745f;
+    --gain:#5cc08a;
+    --loss:#e5675f;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg);
+    background-image:radial-gradient(120% 55% at 50% -10%, #1b160d, transparent 62%);
+    color:var(--text);
+    font-family:"Hanken Grotesk",system-ui,-apple-system,sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:clamp(20px,5vw,56px) clamp(14px,4vw,40px) 88px;
+  }
+  .gm-wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:clamp(34px,6vw,60px)}
+  h1{
+    font-family:"Fraunces",Georgia,serif;font-weight:600;
+    font-size:clamp(26px,3.6vw,38px);line-height:1.12;letter-spacing:-.015em;
+    text-wrap:balance;margin:0;
+  }
+
+  /* ---- header ---- */
+  .gm-head{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+  .gm-lede{color:var(--muted);font-size:15.5px;max-width:60ch;margin:0}
+  .gm-meta{display:flex;flex-wrap:wrap;gap:8px}
+  .gm-pill{background:var(--surface);border:1px solid var(--hairline);border-radius:999px;padding:6px 12px;font:500 12px "IBM Plex Mono",monospace;color:var(--muted)}
+  .gm-pill b{color:var(--gold);font-weight:600}
+  .gm-swatch{display:flex;flex-wrap:wrap;gap:14px;margin-top:2px}
+  .gm-swatch span{display:flex;align-items:center;gap:6px;font:500 11px "IBM Plex Mono",monospace;color:var(--faint)}
+  .gm-swatch i{width:13px;height:13px;border-radius:4px;border:1px solid rgba(255,255,255,.1)}
+  .gm-brand{display:flex;align-items:center;gap:8px}
+  .gm-brand--big{gap:11px}
+  .gm-wordmark{font-family:"Fraunces",Georgia,serif;font-weight:600;letter-spacing:.005em}
+  .gm-wordmark--sm{font-size:15px}
+  .gm-wordmark--big{font-size:22px}
+
+  /* ---- deck ---- */
+  .gm-deck{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,384px));gap:32px 28px;justify-content:center}
+  .gm-frame{display:flex;flex-direction:column;gap:14px}
+  .gm-cap{display:flex;flex-direction:column;gap:3px;padding:0 6px;text-align:center}
+  .gm-cap__ey{font:600 10px "IBM Plex Mono",monospace;letter-spacing:.16em;color:var(--gold-deep)}
+  .gm-cap__name{font:600 13.5px "Hanken Grotesk",sans-serif}
+  .gm-cap__note{font:400 12px "Hanken Grotesk",sans-serif;color:var(--muted);line-height:1.42}
+
+  /* ---- phone ---- */
+  .gm-phone{
+    background:#000;border:1px solid var(--hairline);border-radius:40px;padding:9px;
+    box-shadow:0 40px 70px -30px rgba(0,0,0,.8),0 0 0 1px rgba(245,197,24,.04);
+    transition:box-shadow .22s ease;
+  }
+  .gm-phone.gm-flash{box-shadow:0 0 0 3px var(--gold),0 40px 70px -30px rgba(0,0,0,.8)}
+  .gm-screen{
+    background:linear-gradient(180deg,#141009,#0d0b07);
+    border-radius:32px;padding:16px 16px 18px;min-height:652px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .gm-loginwrap{flex:1;display:flex;align-items:center}
+  .gm-status{display:flex;justify-content:space-between;align-items:center;font:500 11px "IBM Plex Mono",monospace;color:var(--faint);padding:0 4px 2px}
+  .gm-status__r{display:flex;align-items:center;gap:5px}
+  .gm-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);display:inline-block}
+
+  /* ---- primitives ---- */
+  .gm-label{font:600 10.5px "Hanken Grotesk",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .gm-divider{height:1px;background:var(--hairline);margin:3px 0}
+  .gm-btn{appearance:none;border:0;border-radius:999px;padding:12px 16px;font:600 14px "Hanken Grotesk",sans-serif;cursor:pointer;transition:transform .08s ease}
+  .gm-btn:active{transform:translateY(1px)}
+  .gm-btn--gold{background:var(--gold);color:var(--gold-ink)}
+  .gm-btn--ghost{background:transparent;color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-deep)}
+  .gm-btn--danger{background:transparent;color:var(--loss);box-shadow:inset 0 0 0 1px #6a2f2b}
+  .gm-btn--block{width:100%}
+  .gm-btn:disabled{opacity:.38;cursor:not-allowed}
+  .gm-back{align-self:flex-start;background:none;border:0;color:var(--gold);font:600 15px "Hanken Grotesk",sans-serif;cursor:pointer;padding:2px 0}
+  .gm-icbtn{background:var(--surface-2);border:1px solid var(--hairline);color:var(--muted);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px}
+
+  .gm-coin{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#ffe488,#f5c518 46%,#a9791a);flex:none}
+  .gm-coin--lg{width:60px;height:60px;display:flex;align-items:center;justify-content:center;align-self:flex-start}
+  .gm-coin--lg span{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:#3a2b05}
+  .gm-coin--md{width:26px;height:26px;display:flex;align-items:center;justify-content:center}
+  .gm-coin--md span{font-family:"Fraunces",serif;font-weight:600;font-size:12px;color:#3a2b05}
+
+  .gm-field{display:flex;flex-direction:column;gap:6px}
+  .gm-field label{font:600 10px "Hanken Grotesk",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .gm-input{background:var(--surface-2);border:1px solid var(--hairline);border-radius:11px;padding:11px 12px;color:var(--text);font:500 14px "IBM Plex Mono",monospace;width:100%}
+  .gm-input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+  .gm-input[readonly]{color:var(--muted)}
+  .gm-sublabel{font:400 11px "Hanken Grotesk",sans-serif;color:var(--faint)}
+  .gm-sublabel b{color:var(--muted)}
+
+  /* ---- login ---- */
+  .gm-login{display:flex;flex-direction:column;gap:13px}
+  .gm-login__tag{font:400 12px "IBM Plex Mono",monospace;color:var(--muted);margin-top:1px}
+  .gm-login .gm-btn{margin-top:4px}
+  .gm-hint{color:var(--faint);font-size:11.5px;text-align:center;margin:0}
+
+  /* ---- dashboard ---- */
+  .gm-topbar{display:flex;justify-content:space-between;align-items:center}
+  .gm-stock{background:radial-gradient(140% 120% at 0% 0%,#251d10,#120f0a 70%);border:1px solid var(--hairline);border-radius:20px;padding:16px 16px 15px;display:flex;flex-direction:column;gap:7px}
+  .gm-stock__row{display:flex;justify-content:space-between;align-items:center}
+  .gm-spark{width:104px;height:30px}
+  .gm-stock__big{font-family:"Fraunces",Georgia,serif;font-weight:500;font-size:38px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .gm-stock__sub{font:400 12px "IBM Plex Mono",monospace;color:var(--muted)}
+  .gm-stock__val{display:flex;justify-content:space-between;align-items:baseline}
+  .gm-stock__val b{font:500 15px "IBM Plex Mono",monospace}
+  .gm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gm-sec{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+  .gm-link{background:none;border:0;color:var(--gold);font:600 12px "Hanken Grotesk",sans-serif;cursor:pointer}
+  .gm-realized{margin-top:auto;display:flex;justify-content:space-between;align-items:baseline;background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;padding:11px 13px}
+  .gm-realized b{font:600 14px "IBM Plex Mono",monospace;color:var(--gain)}
+
+  /* ---- rows / lists ---- */
+  .gm-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .gm-row{text-align:left;width:100%;background:none;border:0;border-top:1px solid var(--hairline);cursor:pointer;color:inherit;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px 0;font:inherit}
+  .gm-list .gm-row:first-child,.gm-daygrp .gm-row:first-child{border-top:0}
+  .gm-row__mid{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .gm-row__t{font:500 12.5px "IBM Plex Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gm-row__s{font:400 11px "Hanken Grotesk",sans-serif;color:var(--faint)}
+  .gm-row__right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .gm-row__amt{font:500 12.5px "IBM Plex Mono",monospace}
+  .gm-chip{font:700 9.5px "Hanken Grotesk",sans-serif;letter-spacing:.09em;padding:4px 6px;border-radius:6px;align-self:center}
+  .gm-chip--buy{background:rgba(245,197,24,.15);color:var(--gold)}
+  .gm-chip--sell{background:var(--raise);color:var(--muted)}
+  .gm-pl{font:600 11px "IBM Plex Mono",monospace}
+  .gm-pl--up{color:var(--gain)}
+  .gm-pl--down{color:var(--loss)}
+
+  /* ---- history ---- */
+  .gm-seg{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;padding:3px}
+  .gm-seg button{flex:1;background:none;border:0;color:var(--muted);font:600 12px "Hanken Grotesk",sans-serif;padding:7px;border-radius:7px;cursor:pointer}
+  .gm-seg button.is-on{background:var(--gold);color:var(--gold-ink)}
+  .gm-scroll{overflow-y:auto;max-height:432px;padding-right:2px}
+  .gm-day{font:600 9.5px "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);padding:12px 0 3px}
+  .gm-daygrp:first-child .gm-day{padding-top:2px}
+  .gm-empty{color:var(--faint);font-size:13px;text-align:center;padding:34px 0}
+
+  /* ---- detail ---- */
+  .gm-kv{display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+  .gm-kv>div{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:12px 14px;border-top:1px solid var(--hairline)}
+  .gm-kv>div:first-child{border-top:0}
+  .gm-kv span{color:var(--muted);font:500 12px "Hanken Grotesk",sans-serif}
+  .gm-kv b{font:500 12.5px "IBM Plex Mono",monospace;text-align:right}
+
+  /* ---- buy / sell totals ---- */
+  .gm-total{display:flex;justify-content:space-between;align-items:baseline}
+  .gm-total b{font-family:"Fraunces",serif;font-weight:500;font-size:22px;font-variant-numeric:tabular-nums}
+  .gm-tag--gain{color:var(--gain);font:600 16px "IBM Plex Mono",monospace}
+  .gm-tag--loss{color:var(--loss);font:600 16px "IBM Plex Mono",monospace}
+  .gm-error{color:var(--loss);font:500 12px "Hanken Grotesk",sans-serif;margin:0}
+
+  /* ---- footer ---- */
+  .gm-foot{max-width:720px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  .gm-foot ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:7px}
+  .gm-foot li{color:var(--muted);font-size:13px;line-height:1.45}
+  .gm-foot b{color:var(--gold)}
+  @media (max-width:560px){.gm-foot{grid-template-columns:1fr}}
+
+  /* ---- toast ---- */
+  .gm-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--gold);color:var(--gold-ink);padding:10px 18px;border-radius:999px;font:600 13px "Hanken Grotesk",sans-serif;box-shadow:0 20px 40px -12px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:50}
+  .gm-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (prefers-reduced-motion:reduce){
+    *{scroll-behavior:auto !important}
+    .gm-phone,.gm-toast,.gm-btn{transition:none}
+  }
+</style>
+
+<div class="gm-wrap">
+
+  <header class="gm-head">
+    <div class="gm-brand gm-brand--big">
+      <span class="gm-coin gm-coin--md"><span>Au</span></span>
+      <span class="gm-wordmark gm-wordmark--big">Gold Manager</span>
+    </div>
+    <h1>Sale &amp; purchase manager — screen prototype</h1>
+    <p class="gm-lede">Six screens for running a single pool of gold: what is in stock right now, and every purchase and sale behind it. Yellow on black, built for one operator on a phone. The numbers below are seeded sample data and update as you use the Buy and Sell screens.</p>
+    <div class="gm-meta">
+      <span class="gm-pill">login <b>mani</b> / <b>1977</b></span>
+      <span class="gm-pill">Flutter · Node/Express · MongoDB</span>
+      <span class="gm-pill">stock: weighted-average cost</span>
+    </div>
+    <div class="gm-swatch">
+      <span><i style="background:#0d0b07"></i>ground</span>
+      <span><i style="background:#181410"></i>surface</span>
+      <span><i style="background:#f5c518"></i>gold</span>
+      <span><i style="background:#c9a227"></i>gold deep</span>
+      <span><i style="background:#5cc08a"></i>gain</span>
+      <span><i style="background:#e5675f"></i>loss</span>
+    </div>
+  </header>
+
+  <div class="gm-deck">
+
+    <!-- 01 LOGIN -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="login">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <div class="gm-loginwrap">
+            <div class="gm-login">
+              <div class="gm-coin gm-coin--lg"><span>Au</span></div>
+              <div>
+                <div class="gm-wordmark" style="font-size:19px">Gold Manager</div>
+                <div class="gm-login__tag">Stock &amp; ledger</div>
+              </div>
+              <div class="gm-field"><label for="l-user">Username</label><input class="gm-input" id="l-user" value="mani" autocomplete="off"></div>
+              <div class="gm-field"><label for="l-pass">Password</label><input class="gm-input" id="l-pass" type="password" value="1977"></div>
+              <button class="gm-btn gm-btn--gold gm-btn--block" data-goto="dashboard">Sign in</button>
+              <p class="gm-hint">Session stays active until you log out.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">01 — SIGN IN</span><span class="gm-cap__name">Single credential</span><span class="gm-cap__note">mani / 1977. No signup, no reset — one operator.</span></div>
+    </div>
+
+    <!-- 02 DASHBOARD -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="dashboard">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <div class="gm-topbar">
+            <div class="gm-brand"><i class="gm-coin"></i><span class="gm-wordmark gm-wordmark--sm">Gold Manager</span></div>
+            <button class="gm-icbtn" data-goto="login" title="Log out" aria-label="Log out">&#9099;</button>
+          </div>
+          <div class="gm-stock">
+            <div class="gm-stock__row">
+              <span class="gm-label">Current stock</span>
+              <svg class="gm-spark" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
+                <path id="spark-area" fill="rgba(245,197,24,.14)" stroke="none"></path>
+                <path id="spark-line" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                <circle id="spark-dot" r="2.2" fill="var(--gold)"></circle>
+              </svg>
+            </div>
+            <div class="gm-stock__big" id="d-qty">—</div>
+            <div class="gm-stock__sub">avg cost <span id="d-avg">—</span></div>
+            <div class="gm-divider"></div>
+            <div class="gm-stock__val"><span class="gm-label">Stock value</span><b id="d-value">—</b></div>
+          </div>
+          <div class="gm-actions">
+            <button class="gm-btn gm-btn--gold" data-goto="buy">＋ Buy gold</button>
+            <button class="gm-btn gm-btn--ghost" data-goto="sell">－ Sell gold</button>
+          </div>
+          <div class="gm-sec">
+            <span class="gm-label">Recent</span>
+            <button class="gm-link" data-goto="history">All entries →</button>
+          </div>
+          <ul class="gm-list" id="d-recent"></ul>
+          <div class="gm-realized"><span class="gm-label">Realized profit</span><b id="d-realized">—</b></div>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">02 — DASHBOARD</span><span class="gm-cap__name">Stock at a glance</span><span class="gm-cap__note">Grams on hand, weighted-average cost, stock value, last few entries.</span></div>
+    </div>
+
+    <!-- 03 BUY -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="buy">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <button class="gm-back" data-goto="dashboard">‹ Buy gold</button>
+          <div class="gm-field"><label>Date</label><input class="gm-input" value="08 Sep 2026" readonly></div>
+          <div class="gm-field"><label for="b-weight">Weight (g)</label><input class="gm-input" id="b-weight" inputmode="decimal" value="100"></div>
+          <div class="gm-field"><label for="b-rate">Rate / gram</label><input class="gm-input" id="b-rate" inputmode="decimal" value="5990"></div>
+          <div class="gm-divider"></div>
+          <div class="gm-total"><span class="gm-label">Total</span><b id="b-total">—</b></div>
+          <div class="gm-field"><label for="b-note">Note</label><input class="gm-input" id="b-note" placeholder="supplier, bill no."></div>
+          <button class="gm-btn gm-btn--gold gm-btn--block" id="b-save" style="margin-top:auto">Save purchase</button>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">03 — BUY GOLD</span><span class="gm-cap__name">Weight × rate</span><span class="gm-cap__note">Total is computed from weight and rate at purchase time, never typed.</span></div>
+    </div>
+
+    <!-- 04 SELL -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="sell">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <button class="gm-back" data-goto="dashboard">‹ Sell gold</button>
+          <div class="gm-field"><label>Date</label><input class="gm-input" value="08 Sep 2026" readonly></div>
+          <div class="gm-field">
+            <label for="s-weight">Weight (g)</label>
+            <input class="gm-input" id="s-weight" inputmode="decimal" value="50">
+            <span class="gm-sublabel">In stock <b id="s-instock">—</b></span>
+          </div>
+          <div class="gm-field"><label for="s-rate">Rate / gram</label><input class="gm-input" id="s-rate" inputmode="decimal" value="6100"></div>
+          <div class="gm-divider"></div>
+          <div class="gm-total"><span class="gm-label">Est. profit vs avg cost</span><b id="s-profit" class="gm-tag--gain">—</b></div>
+          <p class="gm-error" id="s-error" hidden></p>
+          <div class="gm-field"><label for="s-note">Note</label><input class="gm-input" id="s-note" placeholder="buyer, invoice no."></div>
+          <button class="gm-btn gm-btn--gold gm-btn--block" id="s-save" style="margin-top:auto">Save sale</button>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">04 — SELL GOLD</span><span class="gm-cap__name">Guarded by stock</span><span class="gm-cap__note">Shows stock on hand and profit vs. average cost. Over-selling disables Save.</span></div>
+    </div>
+
+    <!-- 05 HISTORY -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="history">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <button class="gm-back" data-goto="dashboard">‹ History</button>
+          <div class="gm-seg" id="h-seg">
+            <button class="is-on" data-filter="all">All</button>
+            <button data-filter="buy">Buy</button>
+            <button data-filter="sell">Sell</button>
+          </div>
+          <div class="gm-scroll" id="h-list"></div>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">05 — HISTORY</span><span class="gm-cap__name">Every entry</span><span class="gm-cap__note">Filterable, grouped by date, each row showing the running balance after it.</span></div>
+    </div>
+
+    <!-- 06 DETAIL -->
+    <div class="gm-frame">
+      <div class="gm-phone" data-frame="detail">
+        <div class="gm-screen">
+          <div class="gm-status"><span>9:41</span><span class="gm-status__r">5G<i class="gm-dot"></i>84%</span></div>
+          <button class="gm-back" data-goto="history">‹ <span id="x-title">Entry</span></button>
+          <div class="gm-kv">
+            <div><span>Type</span><b id="x-type">—</b></div>
+            <div><span>Date</span><b id="x-date">—</b></div>
+            <div><span>Weight</span><b id="x-weight">—</b></div>
+            <div><span>Rate / gram</span><b id="x-rate">—</b></div>
+            <div><span>Total</span><b id="x-total">—</b></div>
+            <div><span>Stock after</span><b id="x-after">—</b></div>
+            <div><span>Note</span><b id="x-note">—</b></div>
+          </div>
+          <button class="gm-btn gm-btn--danger gm-btn--block" id="x-del" style="margin-top:auto">Delete entry</button>
+        </div>
+      </div>
+      <div class="gm-cap"><span class="gm-cap__ey">06 — ENTRY DETAIL</span><span class="gm-cap__name">Full record</span><span class="gm-cap__note">Every field plus stock-after. Deleting recomputes the whole ledger.</span></div>
+    </div>
+
+  </div>
+
+  <footer class="gm-foot">
+    <div>
+      <span class="gm-label">Live in this prototype</span>
+      <ul>
+        <li>Seeded with six entries; stock, average cost and running balances are all computed live.</li>
+        <li>Buy and Sell write to the shared ledger — every screen updates, with a toast confirmation.</li>
+        <li>Selling more than the stock on hand disables Save and names the amount available.</li>
+      </ul>
+    </div>
+    <div>
+      <span class="gm-label">Added by the real build</span>
+      <ul>
+        <li>Node/Express API on MongoDB; totals computed server-side, <b>422</b> on over-sell.</li>
+        <li>JWT issued for the <b>mani</b> credential; every other route requires it.</li>
+        <li>Flutter client holds the token in secure storage; data persists across devices.</li>
+      </ul>
+    </div>
+  </footer>
+
+</div>
+
+<div class="gm-toast" id="gm-toast" role="status"></div>
+
+<script>
+  var q = function(s){ return document.querySelector(s); };
+  var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var nf0 = new Intl.NumberFormat('en-IN',{maximumFractionDigits:0});
+  var nf2 = new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  function inr(n){ return '₹' + nf0.format(Math.round(n)); }
+  function inr2(n){ return '₹' + nf2.format(n); }
+  function grams(n){ return nf2.format(n) + ' g'; }
+  function signed(n){ return (n >= 0 ? '+' : '−') + inr(Math.abs(n)); }
+  function dlong(iso){ var p = iso.split('-'); return p[2] + ' ' + MONTHS[+p[1]-1] + ' ' + p[0]; }
+
+  var seed = [
+    {id:1, type:'buy',  date:'2026-08-12', w:500, r:5880, note:'Opening stock'},
+    {id:2, type:'buy',  date:'2026-08-19', w:300, r:5910, note:'Ravi Jewellers · bill 4471'},
+    {id:3, type:'sell', date:'2026-08-27', w:150, r:6040, note:'Retail counter'},
+    {id:4, type:'buy',  date:'2026-09-01', w:200, r:5950, note:'MMTC lot'},
+    {id:5, type:'sell', date:'2026-09-04', w:90,  r:6110, note:'Retail counter'},
+    {id:6, type:'buy',  date:'2026-09-06', w:100, r:5990, note:'Ravi Jewellers · bill 4502'}
+  ];
+  var txns = seed.map(function(t){ return Object.assign({}, t); });
+  var filter = 'all';
+  var selId = 6;
+
+  function compute(list){
+    var sorted = list.slice().sort(function(a,b){ return a.date.localeCompare(b.date) || a.id - b.id; });
+    var qty = 0, avg = 0, realized = 0;
+    var rows = sorted.map(function(t){
+      var amount = t.w * t.r, profit = null;
+      if(t.type === 'buy'){
+        avg = (qty * avg + t.w * t.r) / (qty + t.w);
+        qty += t.w;
+      } else {
+        profit = (t.r - avg) * t.w;
+        realized += profit;
+        qty -= t.w;
+      }
+      return {id:t.id, type:t.type, date:t.date, w:t.w, r:t.r, note:t.note,
+              amount:amount, profit:profit, balAfter:qty, avgAfter:avg};
+    });
+    return {qty:qty, avg:avg, value:qty * avg, realized:realized, rows:rows};
+  }
+
+  function spark(vals){
+    var w = 120, h = 34, pad = 3;
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var span = (max - min) || 1;
+    var pts = vals.map(function(v, i){
+      var x = pad + i * (w - 2 * pad) / (vals.length - 1 || 1);
+      var y = h - pad - (v - min) / span * (h - 2 * pad);
+      return [x, y];
+    });
+    var line = pts.map(function(p, i){ return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+    var last = pts[pts.length - 1];
+    var area = line + ' L ' + last[0].toFixed(1) + ' ' + h + ' L ' + pts[0][0].toFixed(1) + ' ' + h + ' Z';
+    return {line:line, area:area, last:last};
+  }
+
+  function chip(type){
+    return type === 'buy'
+      ? '<span class="gm-chip gm-chip--buy">BUY</span>'
+      : '<span class="gm-chip gm-chip--sell">SELL</span>';
+  }
+
+  function recentRow(r){
+    var sub = dlong(r.date);
+    if(r.type === 'sell'){
+      sub += ' · <span class="gm-pl ' + (r.profit >= 0 ? 'gm-pl--up' : 'gm-pl--down') + '">' + signed(r.profit) + '</span>';
+    }
+    return '<button class="gm-row" data-row="' + r.id + '" data-goto="detail">' +
+      chip(r.type) +
+      '<span class="gm-row__mid"><span class="gm-row__t">' + grams(r.w) + ' @ ' + inr(r.r) + '</span>' +
+      '<span class="gm-row__s">' + sub + '</span></span>' +
+      '<span class="gm-row__amt">' + inr(r.amount) + '</span></button>';
+  }
+
+  function histRow(r){
+    var pl = r.type === 'sell'
+      ? '<span class="gm-pl ' + (r.profit >= 0 ? 'gm-pl--up' : 'gm-pl--down') + '">' + signed(r.profit) + '</span>'
+      : '';
+    return '<button class="gm-row" data-row="' + r.id + '" data-goto="detail">' +
+      chip(r.type) +
+      '<span class="gm-row__mid"><span class="gm-row__t">' + grams(r.w) + ' @ ' + inr(r.r) + '</span>' +
+      '<span class="gm-row__s">bal ' + grams(r.balAfter) + '</span></span>' +
+      '<span class="gm-row__right"><span class="gm-row__amt">' + inr(r.amount) + '</span>' + pl + '</span></button>';
+  }
+
+  function renderHistory(st){
+    var rows = st.rows.slice().reverse();
+    if(filter !== 'all') rows = rows.filter(function(r){ return r.type === filter; });
+    if(!rows.length){ q('#h-list').innerHTML = '<p class="gm-empty">No ' + filter + ' entries yet</p>'; return; }
+    var order = [], groups = {};
+    rows.forEach(function(r){
+      if(!groups[r.date]){ groups[r.date] = []; order.push(r.date); }
+      groups[r.date].push(r);
+    });
+    q('#h-list').innerHTML = order.map(function(d){
+      return '<div class="gm-daygrp"><div class="gm-day">' + dlong(d) + '</div>' +
+        groups[d].map(histRow).join('') + '</div>';
+    }).join('');
+  }
+
+  function renderDetail(st){
+    var r = null;
+    for(var i = 0; i < st.rows.length; i++){ if(st.rows[i].id === selId){ r = st.rows[i]; break; } }
+    if(!r){ r = st.rows[st.rows.length - 1]; }
+    if(!r){
+      q('#x-title').textContent = 'Entry';
+      ['x-type','x-date','x-weight','x-rate','x-total','x-after','x-note'].forEach(function(id){ q('#' + id).textContent = '—'; });
+      q('#x-del').disabled = true;
+      return;
+    }
+    selId = r.id;
+    q('#x-del').disabled = false;
+    q('#x-title').textContent = r.type === 'buy' ? 'Purchase' : 'Sale';
+    q('#x-type').innerHTML = chip(r.type);
+    q('#x-date').textContent = dlong(r.date);
+    q('#x-weight').textContent = grams(r.w);
+    q('#x-rate').textContent = inr2(r.r);
+    q('#x-total').textContent = inr(r.amount);
+    q('#x-after').textContent = grams(r.balAfter);
+    q('#x-note').textContent = r.note || '—';
+  }
+
+  function buyTotal(){
+    var w = parseFloat(q('#b-weight').value) || 0;
+    var r = parseFloat(q('#b-rate').value) || 0;
+    q('#b-total').textContent = (w > 0 && r > 0) ? inr(w * r) : '—';
+  }
+
+  function sellPreview(st){
+    var w = parseFloat(q('#s-weight').value) || 0;
+    var r = parseFloat(q('#s-rate').value) || 0;
+    var over = w > st.qty;
+    var err = q('#s-error');
+    err.hidden = !over;
+    err.textContent = over ? 'Only ' + grams(st.qty) + ' available' : '';
+    var p = (r - st.avg) * w;
+    var pe = q('#s-profit');
+    pe.textContent = (w > 0 && r > 0) ? signed(p) : '—';
+    pe.className = p >= 0 ? 'gm-tag--gain' : 'gm-tag--loss';
+    q('#s-save').disabled = over || !(w > 0) || !(r > 0);
+  }
+
+  function render(){
+    var st = compute(txns);
+    q('#d-qty').textContent = grams(st.qty);
+    q('#d-avg').textContent = inr2(st.avg) + ' / g';
+    q('#d-value').textContent = inr(st.value);
+    q('#d-realized').textContent = inr(st.realized);
+
+    var bals = st.rows.map(function(r){ return r.balAfter; });
+    var series = bals.length > 1 ? bals : [0, bals[0] || 0];
+    var sp = spark(series);
+    q('#spark-line').setAttribute('d', sp.line);
+    q('#spark-area').setAttribute('d', sp.area);
+    q('#spark-dot').setAttribute('cx', sp.last[0]);
+    q('#spark-dot').setAttribute('cy', sp.last[1]);
+
+    q('#d-recent').innerHTML = st.rows.slice().reverse().slice(0, 3).map(recentRow).join('') ||
+      '<p class="gm-empty">No entries yet</p>';
+
+    renderHistory(st);
+    q('#s-instock').textContent = grams(st.qty);
+    sellPreview(st);
+    buyTotal();
+    renderDetail(st);
+  }
+
+  function goto(id){
+    var f = document.querySelector('[data-frame="' + id + '"]');
+    if(!f) return;
+    f.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'center'});
+    if(!reduce){
+      f.classList.remove('gm-flash');
+      void f.offsetWidth;
+      f.classList.add('gm-flash');
+    }
+  }
+
+  var toastTimer;
+  function toast(msg){
+    var t = q('#gm-toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1900);
+  }
+
+  document.addEventListener('click', function(e){
+    var row = e.target.closest('[data-row]');
+    if(row){ selId = parseInt(row.dataset.row, 10); renderDetail(compute(txns)); }
+
+    var seg = e.target.closest('#h-seg button');
+    if(seg){
+      filter = seg.dataset.filter;
+      q('#h-seg').querySelectorAll('button').forEach(function(b){ b.classList.toggle('is-on', b === seg); });
+      renderHistory(compute(txns));
+    }
+
+    var go = e.target.closest('[data-goto]');
+    if(go){ e.preventDefault(); goto(go.dataset.goto); }
+  });
+
+  ['input','change'].forEach(function(ev){
+    q('#b-weight').addEventListener(ev, buyTotal);
+    q('#b-rate').addEventListener(ev, buyTotal);
+    q('#s-weight').addEventListener(ev, function(){ sellPreview(compute(txns)); });
+    q('#s-rate').addEventListener(ev, function(){ sellPreview(compute(txns)); });
+  });
+
+  q('#b-save').addEventListener('click', function(){
+    var w = parseFloat(q('#b-weight').value), r = parseFloat(q('#b-rate').value);
+    if(!(w > 0) || !(r > 0)){ toast('Enter weight and rate'); return; }
+    txns.push({id: Date.now(), type:'buy', date:'2026-09-08', w:w, r:r, note: q('#b-note').value || 'Added in prototype'});
+    q('#b-note').value = '';
+    render();
+    toast('Purchase saved · +' + grams(w));
+    goto('dashboard');
+  });
+
+  q('#s-save').addEventListener('click', function(){
+    var st = compute(txns);
+    var w = parseFloat(q('#s-weight').value), r = parseFloat(q('#s-rate').value);
+    if(!(w > 0) || !(r > 0)){ toast('Enter weight and rate'); return; }
+    if(w > st.qty){ toast('Only ' + grams(st.qty) + ' available'); return; }
+    txns.push({id: Date.now(), type:'sell', date:'2026-09-08', w:w, r:r, note: q('#s-note').value || 'Added in prototype'});
+    q('#s-note').value = '';
+    render();
+    toast('Sale saved · −' + grams(w));
+    goto('dashboard');
+  });
+
+  q('#x-del').addEventListener('click', function(){
+    txns = txns.filter(function(t){ return t.id !== selId; });
+    selId = txns.length ? Math.max.apply(null, txns.map(function(t){ return t.id; })) : null;
+    render();
+    toast('Entry deleted');
+    goto('history');
+  });
+
+  render();
+</script>

@@ -1,0 +1,119 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const Transaction = require('../models/Transaction');
+const { replayStock } = require('../services/stock');
+const ah = require('../lib/asyncHandler');
+
+const router = express.Router();
+
+function serialize(t, perTxn) {
+  const extra = perTxn && perTxn.get(String(t._id));
+  return {
+    id: String(t._id),
+    type: t.type,
+    date: t.date,
+    weightGrams: t.weightGrams,
+    ratePerGram: t.ratePerGram,
+    totalAmount: t.totalAmount,
+    note: t.note || '',
+    createdAt: t.createdAt,
+    balanceAfter: extra ? extra.balanceAfter : null,
+    avgCostAfter: extra ? extra.avgCostAfter : null,
+    profit: extra ? extra.profit : null,
+  };
+}
+
+function byDateDesc(a, b) {
+  return (
+    new Date(b.date) - new Date(a.date) ||
+    new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+}
+
+// GET /api/transactions?type=purchase|sale  -> newest first, each with balanceAfter
+router.get(
+  '/',
+  ah(async (req, res) => {
+    const all = await Transaction.find().lean();
+    const { perTxn } = replayStock(all);
+
+    let list = all.slice().sort(byDateDesc);
+    if (req.query.type === 'purchase' || req.query.type === 'sale') {
+      list = list.filter((t) => t.type === req.query.type);
+    }
+    res.json(list.map((t) => serialize(t, perTxn)));
+  })
+);
+
+// GET /api/transactions/:id
+router.get(
+  '/:id',
+  ah(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const all = await Transaction.find().lean();
+    const { perTxn } = replayStock(all);
+    const t = all.find((x) => String(x._id) === req.params.id);
+    if (!t) return res.status(404).json({ error: 'Not found' });
+    res.json(serialize(t, perTxn));
+  })
+);
+
+// POST /api/transactions  { type, date?, weightGrams, ratePerGram, note? }
+router.post(
+  '/',
+  ah(async (req, res) => {
+    const { type, date, weightGrams, ratePerGram, note } = req.body || {};
+
+    if (type !== 'purchase' && type !== 'sale') {
+      return res.status(400).json({ error: "type must be 'purchase' or 'sale'" });
+    }
+    const w = Number(weightGrams);
+    const r = Number(ratePerGram);
+    if (!(w > 0)) return res.status(400).json({ error: 'weightGrams must be greater than 0' });
+    if (!(r >= 0)) return res.status(400).json({ error: 'ratePerGram must be 0 or more' });
+
+    const when = date ? new Date(date) : new Date();
+    if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
+
+    if (type === 'sale') {
+      const all = await Transaction.find().lean();
+      const available = replayStock(all).weightGrams;
+      if (w > available + 1e-9) {
+        return res.status(422).json({
+          error: `Only ${available.toFixed(2)} g available`,
+          availableGrams: available,
+        });
+      }
+    }
+
+    const doc = await Transaction.create({
+      type,
+      date: when,
+      weightGrams: w,
+      ratePerGram: r,
+      totalAmount: Math.round(w * r * 100) / 100,
+      note: (note || '').toString().trim(),
+    });
+
+    const all = await Transaction.find().lean();
+    const { perTxn } = replayStock(all);
+    res.status(201).json(serialize(doc.toObject(), perTxn));
+  })
+);
+
+// DELETE /api/transactions/:id
+router.delete(
+  '/:id',
+  ah(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const deleted = await Transaction.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  })
+);
+
+module.exports = router;

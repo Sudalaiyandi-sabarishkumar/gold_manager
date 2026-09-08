@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+
+# Node (also covered by backend/.gitignore)
+node_modules/
+*.log
+.env
+
+# Flutter build artifacts (also covered by mobile/.gitignore)
+build/
+.dart_tool/
