@@ -18,7 +18,7 @@ const SAMPLE = [
   { type: 'purchase', date: '2026-08-19', weightGrams: 300, ratePerGram: 5910, party: 'Ravi Jewellers', note: 'bill 4471', paidFull: true },
   { type: 'sale', date: '2026-08-27', weightGrams: 150, ratePerGram: 6040, party: 'Kumar Jewellery', note: 'bill S-118', paid: 500000 },
   { type: 'purchase', date: '2026-09-01', weightGrams: 200, ratePerGram: 5950, party: 'MMTC', note: 'lot 92', paid: 800000 },
-  { type: 'sale', date: '2026-09-04', weightGrams: 90, ratePerGram: 6110, party: 'Kumar Jewellery', note: 'bill S-121', paid: 0 },
+  { type: 'sale', date: '2026-09-04', weightGrams: 90, ratePerGram: 6110, party: 'Kumar Jewellery', note: 'bill S-121', paid: 200000 },
   { type: 'purchase', date: '2026-09-06', weightGrams: 100, ratePerGram: 5990, party: 'Ravi Jewellers', note: 'bill 4502', paidFull: true },
 ];
 

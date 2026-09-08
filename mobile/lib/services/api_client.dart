@@ -147,6 +147,17 @@ class ApiClient {
     return _handle(res) as Map<String, dynamic>;
   }
 
+  /// Records one payment per bill in a single call.
+  /// allocations: [{ transactionId, amount, note? }]
+  Future<void> settleParty(List<Map<String, dynamic>> allocations) async {
+    final res = await _guard(_http.post(
+      _uri('/api/parties/settle'),
+      headers: _headers,
+      body: jsonEncode({'allocations': allocations}),
+    ));
+    _handle(res);
+  }
+
   static String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';

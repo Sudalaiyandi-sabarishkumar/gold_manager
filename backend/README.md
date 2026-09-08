@@ -38,7 +38,11 @@ All routes except `POST /api/auth/login` require `Authorization: Bearer <token>`
 | DELETE | `/api/transactions/:id` | — | `{ ok: true }` |
 | POST | `/api/transactions/:id/payments` | `{ amount, date?, note? }` | updated row — **422** if `amount` exceeds what is outstanding |
 | DELETE | `/api/transactions/:id/payments/:paymentId` | — | updated row |
-| GET | `/api/outstanding` | — | `{ totalReceivable, totalPayable, receivables[], payables[] }` grouped by party |
+| GET | `/api/outstanding` | — | `{ totalReceivable, totalPayable, receivables[], payables[] }` grouped by party (case-insensitive) |
+| POST | `/api/parties/settle` | `{ allocations: [{ transactionId, amount, date?, note? }] }` | `{ ok, settled }` — records one payment per bill in a single call; validates all first, **422** if any exceeds its bill's outstanding, writes nothing on failure |
+
+Party names are grouped case-insensitively; a new transaction reuses an
+existing spelling of the same name (`Sekar` / `sekar` stay one person).
 
 `totalAmount` is always computed server-side as `weightGrams * ratePerGram`.
 `amountPaid` / `amountDue` / `paymentStatus` are derived from the `payments`

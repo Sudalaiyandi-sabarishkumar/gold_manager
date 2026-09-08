@@ -40,10 +40,21 @@ function outstanding(txns) {
     const { amountDue } = summarizePayments(t);
     if (amountDue <= EPS) continue;
 
-    const key = (t.party || '').trim() || 'Unnamed';
+    // Group by party case-insensitively so "Sekar" and "sekar" are one person;
+    // display the first spelling seen.
+    const raw = (t.party || '').trim();
+    const key = raw.toLowerCase() || 'unnamed';
     const bucket = t.type === 'sale' ? receivablesByParty : payablesByParty;
-    const entry =
-      bucket.get(key) || { party: key, totalDue: 0, count: 0, transactionIds: [] };
+    const entry = bucket.get(key) || {
+      party: raw || 'Unnamed',
+      totalDue: 0,
+      count: 0,
+      transactionIds: [],
+    };
+    // Prefer a spelling that has some capitalisation over an all-lowercase one.
+    if (raw && raw !== raw.toLowerCase() && entry.party === entry.party.toLowerCase()) {
+      entry.party = raw;
+    }
     entry.totalDue = round2(entry.totalDue + amountDue);
     entry.count += 1;
     entry.transactionIds.push(String(t._id));

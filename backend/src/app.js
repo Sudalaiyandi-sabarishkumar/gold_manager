@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const stockRoutes = require('./routes/stock');
 const transactionRoutes = require('./routes/transactions');
 const outstandingRoutes = require('./routes/outstanding');
+const partyRoutes = require('./routes/parties');
 
 function createApp() {
   const app = express();
@@ -18,6 +19,7 @@ function createApp() {
   app.use('/api/stock', auth, stockRoutes);
   app.use('/api/transactions', auth, transactionRoutes);
   app.use('/api/outstanding', auth, outstandingRoutes);
+  app.use('/api/parties', auth, partyRoutes);
 
   app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

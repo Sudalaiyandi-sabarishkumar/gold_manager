@@ -71,8 +71,14 @@ async function main() {
   check('seeded stock weight = 860 g', approx(r.body.weightGrams, 860));
   check('seeded avg cost ~ 5914.95 /g', approx(r.body.avgCostPerGram, 5914.95, 0.05));
   check('seeded realized profit ~ 40756', approx(r.body.realizedProfit, 40755.88, 1));
-  check('seeded receivable = 9,55,900', approx(r.body.totalReceivable, 955900, 1));
+  check('seeded receivable = 7,55,900', approx(r.body.totalReceivable, 755900, 1));
   check('seeded payable = 3,90,000', approx(r.body.totalPayable, 390000, 1));
+
+  // --- party names merge across casing ("Kumar Jewellery" + "kumar jewellery") ---
+  let o = await json(await fetch(`${base}/api/outstanding`, { headers: authH }));
+  const kumarSeed = o.body.receivables.filter((x) => x.party.toLowerCase() === 'kumar jewellery');
+  check('Kumar Jewellery is ONE receivable entry across 2 bills',
+    kumarSeed.length === 1 && kumarSeed[0].count === 2 && approx(kumarSeed[0].totalDue, 755900, 1));
 
   // --- payment state on a seeded partial sale ---
   r = await json(await fetch(`${base}/api/transactions?type=sale`, { headers: authH }));
@@ -85,37 +91,77 @@ async function main() {
       partialSale.paymentStatus === 'partial' &&
       partialSale.payments.length === 1
   );
-  const unpaidSale = r.body.find((t) => t.weightGrams === 90 && t.party === 'Kumar Jewellery');
-  check('seeded sale is unpaid: due 5,49,900', unpaidSale && unpaidSale.paymentStatus === 'unpaid');
+  const otherSale = r.body.find((t) => t.weightGrams === 90);
+  check('second Kumar bill is partial: due 3,49,900',
+    otherSale.paymentStatus === 'partial' && approx(otherSale.amountDue, 349900, 1));
 
-  // --- add a payment -> paid in full ---
+  // --- a NEW transaction snaps its party name to the existing spelling ---
   r = await json(
-    await fetch(`${base}/api/transactions/${partialSale.id}/payments`, {
+    await fetch(`${base}/api/transactions`, {
       method: 'POST',
       headers: authH,
-      body: JSON.stringify({ amount: 406000, note: 'balance cleared' }),
+      body: JSON.stringify({
+        type: 'sale', date: '2026-09-08', party: '  KUMAR JEWELLERY ',
+        weightGrams: 5, ratePerGram: 6200, amountPaid: 0,
+      }),
     })
   );
-  check('add payment -> 201, status paid, due 0, 2 payments',
-    r.status === 201 && r.body.paymentStatus === 'paid' && approx(r.body.amountDue, 0) &&
-    r.body.payments.length === 2);
+  check('new sale reuses an existing Kumar spelling (not "KUMAR JEWELLERY")',
+    r.status === 201 &&
+      r.body.party.toLowerCase() === 'kumar jewellery' &&
+      r.body.party !== 'KUMAR JEWELLERY');
+  await json(
+    await fetch(`${base}/api/transactions/${r.body.id}`, { method: 'DELETE', headers: authH })
+  );
 
-  const afterPay = await json(await fetch(`${base}/api/stock`, { headers: authH }));
-  check('receivable drops to 5,49,900 after payment', approx(afterPay.body.totalReceivable, 549900, 1));
-
-  // --- overpay rejected ---
+  // --- settle both of Kumar's bills in one call ---
   r = await json(
-    await fetch(`${base}/api/transactions/${unpaidSale.id}/payments`, {
+    await fetch(`${base}/api/parties/settle`, {
+      method: 'POST',
+      headers: authH,
+      body: JSON.stringify({
+        allocations: [
+          { transactionId: partialSale.id, amount: 406000, note: 'cheque 71' },
+          { transactionId: otherSale.id, amount: 100000, note: 'cheque 71' },
+        ],
+      }),
+    })
+  );
+  check('settle 2 bills -> ok, settled: 2', r.status === 200 && r.body.settled === 2);
+
+  const afterSettle = await json(await fetch(`${base}/api/stock`, { headers: authH }));
+  check('receivable drops by 5,06,000 after settle', approx(afterSettle.body.totalReceivable, 249900, 1));
+  r = await json(await fetch(`${base}/api/transactions/${partialSale.id}`, { headers: authH }));
+  check('first bill now paid in full', r.body.paymentStatus === 'paid');
+
+  // --- settle rejects an over-allocation, writes nothing ---
+  r = await json(
+    await fetch(`${base}/api/parties/settle`, {
+      method: 'POST',
+      headers: authH,
+      body: JSON.stringify({
+        allocations: [{ transactionId: otherSale.id, amount: 999999999 }],
+      }),
+    })
+  );
+  check('settle over-allocation -> 422', r.status === 422 && /outstanding/.test(r.body.error));
+  r = await json(await fetch(`${base}/api/transactions/${otherSale.id}`, { headers: authH }));
+  check('over-allocation wrote nothing', approx(r.body.amountDue, 249900, 1));
+
+  // --- single-bill payment endpoint still works; overpay rejected ---
+  r = await json(
+    await fetch(`${base}/api/transactions/${otherSale.id}/payments`, {
       method: 'POST',
       headers: authH,
       body: JSON.stringify({ amount: 999999999 }),
     })
   );
-  check('overpay -> 422 with outstanding message', r.status === 422 && /outstanding/.test(r.body.error));
+  check('overpay one bill -> 422 with outstanding message',
+    r.status === 422 && /outstanding/.test(r.body.error));
 
   // --- delete a payment -> back to partial ---
   r = await json(await fetch(`${base}/api/transactions/${partialSale.id}`, { headers: authH }));
-  const payToDelete = r.body.payments.find((p) => p.note === 'balance cleared');
+  const payToDelete = r.body.payments.find((p) => p.note === 'cheque 71');
   r = await json(
     await fetch(`${base}/api/transactions/${partialSale.id}/payments/${payToDelete.id}`, {
       method: 'DELETE',
@@ -181,11 +227,11 @@ async function main() {
   check('date filter Aug -> every row in August',
     r.body.every((t) => new Date(t.date) < new Date('2026-09-01')));
 
-  // --- outstanding grouped by party ---
+  // --- outstanding grouped by party (after the settle / delete dance above) ---
   r = await json(await fetch(`${base}/api/outstanding`, { headers: authH }));
   const kumar = r.body.receivables.find((x) => x.party === 'Kumar Jewellery');
-  check('outstanding: Kumar owes 9,55,900 across 2 bills',
-    kumar && approx(kumar.totalDue, 955900, 1) && kumar.count === 2);
+  check('outstanding: Kumar is one entry, 2 bills, 6,55,900 due',
+    kumar && approx(kumar.totalDue, 655900, 1) && kumar.count === 2);
   const mmtc = r.body.payables.find((x) => x.party === 'MMTC');
   check('outstanding: we owe MMTC 3,90,000', mmtc && approx(mmtc.totalDue, 390000, 1));
 

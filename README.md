@@ -6,9 +6,12 @@ A gold **sale & purchase** manager for one operator.
 - **Transaction history** — every purchase and sale, with the running balance after each.
   Search by buyer/seller name or note, and filter by a date range.
 - **Deferred payments** — a buyer can pay for a sale (or you can pay a seller for a
-  purchase) in full, partially, or later. Each transaction tracks Paid / Due, keeps
-  a list of instalments, and rolls up into **Receivable** / **Payable** totals and a
-  by-person outstanding view. Payments never affect stock or profit.
+  purchase) in full, partially, or later. Each transaction tracks Paid / Due and keeps
+  a list of instalments; payments never affect stock or profit.
+- **Per-person balances** — every party has a page showing all their bills and one
+  **Receivable** / **Payable** total. Record what they paid once and tick which bills
+  it covers — no need to open each transaction. Names are picked from a dropdown of
+  those already used and grouped case-insensitively, so one person stays one row.
 - **Login** — single credential `mani` / `1977`.
 - **Theme** — yellow on black.
 - **Stack** — Flutter (mobile) · Node/Express (API) · MongoDB.

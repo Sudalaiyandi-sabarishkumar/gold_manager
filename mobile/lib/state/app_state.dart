@@ -150,4 +150,35 @@ class AppState extends ChangeNotifier {
     await _api.deletePayment(transactionId, paymentId);
     await refresh();
   }
+
+  /// Records payments against several bills at once (person-level settlement).
+  /// Each entry: { transactionId, amount, note? }.
+  Future<void> settleParty(List<Map<String, dynamic>> allocations) async {
+    await _api.settleParty(allocations);
+    await refresh();
+  }
+
+  /// Distinct party names already used, case-insensitive, keeping the first
+  /// spelling seen. Feeds the name dropdown on the transaction form.
+  List<String> get partyNames {
+    final seen = <String, String>{};
+    for (final t in transactions) {
+      final raw = t.party.trim();
+      if (raw.isEmpty) continue;
+      seen.putIfAbsent(raw.toLowerCase(), () => raw);
+    }
+    final names = seen.values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
+  }
+
+  /// If [name] matches a known party case-insensitively, return that spelling.
+  String canonicalParty(String name) {
+    final raw = name.trim();
+    if (raw.isEmpty) return '';
+    for (final n in partyNames) {
+      if (n.toLowerCase() == raw.toLowerCase()) return n;
+    }
+    return raw;
+  }
 }

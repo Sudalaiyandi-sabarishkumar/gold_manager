@@ -48,6 +48,18 @@ function byDateDesc(a, b) {
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
+// Reuse the existing spelling of a party name if one already exists
+// (case-insensitive), so the same person is not split by casing/whitespace.
+async function canonicalParty(name) {
+  const raw = (name || '').toString().trim();
+  if (!raw) return '';
+  const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const existing = await Transaction.findOne({ party: new RegExp(`^${escaped}$`, 'i') })
+    .select('party')
+    .lean();
+  return existing && existing.party ? existing.party : raw;
+}
+
 // GET /api/transactions?type=purchase|sale&q=<name/note>&from=<date>&to=<date>
 router.get(
   '/',
@@ -142,7 +154,7 @@ router.post(
     const doc = await Transaction.create({
       type,
       date: when,
-      party: (party || '').toString().trim(),
+      party: await canonicalParty(party),
       weightGrams: w,
       ratePerGram: r,
       totalAmount: total,

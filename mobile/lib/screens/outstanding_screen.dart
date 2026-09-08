@@ -5,8 +5,7 @@ import '../models/outstanding.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../utils/format.dart';
-import '../widgets/transaction_tile.dart';
-import 'transaction_detail_screen.dart';
+import 'party_screen.dart';
 
 class OutstandingScreen extends StatefulWidget {
   const OutstandingScreen({super.key, this.initialSide = 'receivable'});
@@ -107,40 +106,34 @@ class _PartyCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: GoldColors.hairline),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-          title: Text(
-            party.party,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          subtitle: Text(
-            '${party.count} ${party.count == 1 ? 'bill' : 'bills'}',
-            style: const TextStyle(color: GoldColors.faint, fontSize: 11),
-          ),
-          trailing: Text(
-            inr(party.totalDue),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
-              color: GoldColors.loss,
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(14, 4, 10, 4),
+        title: Text(
+          party.party,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: Text(
+          '${party.count} ${party.count == 1 ? 'bill' : 'bills'} · tap to settle',
+          style: const TextStyle(color: GoldColors.faint, fontSize: 11),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              inr(party.totalDue),
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+                color: GoldColors.loss,
+              ),
             ),
+            const Icon(Icons.chevron_right, size: 18, color: GoldColors.muted),
+          ],
+        ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PartyScreen(partyName: party.party),
           ),
-          children: party.transactions
-              .map(
-                (t) => TransactionTile(
-                  txn: t,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          TransactionDetailScreen(transactionId: t.id),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
         ),
       ),
     );

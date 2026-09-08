@@ -74,15 +74,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final navigator = Navigator.of(context);
     setState(() => _saving = true);
     try {
-      await context.read<AppState>().addTransaction(
-            type: widget.type,
-            date: _date,
-            party: _party.text.trim(),
-            weightGrams: _w,
-            ratePerGram: _r,
-            note: _note.text.trim(),
-            amountPaid: _paidNow,
-          );
+      final appState = context.read<AppState>();
+      await appState.addTransaction(
+        type: widget.type,
+        date: _date,
+        party: appState.canonicalParty(_party.text),
+        weightGrams: _w,
+        ratePerGram: _r,
+        note: _note.text.trim(),
+        amountPaid: _paidNow,
+      );
       navigator.pop();
       messenger.showSnackBar(
         SnackBar(
@@ -139,10 +140,53 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: 16),
             _Label(widget.isSale ? 'BUYER NAME' : 'SELLER NAME'),
             const SizedBox(height: 6),
-            TextFormField(
-              controller: _party,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'optional'),
+            Autocomplete<String>(
+              optionsBuilder: (value) {
+                final names = context.read<AppState>().partyNames;
+                final q = value.text.trim().toLowerCase();
+                if (q.isEmpty) return names;
+                return names.where((n) => n.toLowerCase().contains(q));
+              },
+              onSelected: (v) => _party.text = v,
+              fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                return TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'type or pick a name (optional)',
+                    suffixIcon:
+                        Icon(Icons.arrow_drop_down, color: GoldColors.muted),
+                  ),
+                  onChanged: (v) => _party.text = v,
+                  onFieldSubmitted: (_) => onSubmit(),
+                );
+              },
+              optionsViewBuilder: (context, onSelected, options) => Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  color: GoldColors.surface,
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(10),
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxHeight: 220, maxWidth: 340),
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      children: options
+                          .map((o) => ListTile(
+                                dense: true,
+                                title: Text(o,
+                                    style: const TextStyle(
+                                        color: GoldColors.text)),
+                                onTap: () => onSelected(o),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             const _Label('WEIGHT (G)'),
