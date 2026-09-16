@@ -12,6 +12,7 @@ import 'expenses_screen.dart';
 import 'history_screen.dart';
 import 'loans_screen.dart';
 import 'outstanding_screen.dart';
+import 'quick_check_screen.dart';
 import 'settings_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -45,6 +46,11 @@ class DashboardScreen extends StatelessWidget {
             tooltip: 'Loans',
             icon: const Icon(Icons.account_balance_wallet_outlined, size: 20),
             onPressed: () => _open(context, const LoansScreen()),
+          ),
+          IconButton(
+            tooltip: 'Quick check',
+            icon: const Icon(Icons.fact_check_outlined, size: 20),
+            onPressed: () => _open(context, const QuickCheckScreen()),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
