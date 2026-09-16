@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/expense.dart';
 import '../models/loan.dart';
 import '../models/settings.dart';
 import '../models/stock.dart';
@@ -24,6 +25,7 @@ class AppState extends ChangeNotifier {
   StockSummary stock = StockSummary.empty;
   List<GoldTransaction> transactions = const [];
   List<Loan> loans = const [];
+  List<Expense> expenses = const [];
   AppSettings settings = AppSettings.empty;
   bool loading = false;
   String? error;
@@ -74,6 +76,7 @@ class AppState extends ChangeNotifier {
     stock = StockSummary.empty;
     transactions = const [];
     loans = const [];
+    expenses = const [];
     settings = AppSettings.empty;
     error = null;
     notifyListeners();
@@ -89,6 +92,7 @@ class AppState extends ChangeNotifier {
         _api.getTransactions(),
         _api.getLoans(),
         _api.getSettings(),
+        _api.getExpenses(),
       ]);
       stock = StockSummary.fromJson(results[0] as Map<String, dynamic>);
       transactions = (results[1] as List<dynamic>)
@@ -98,6 +102,9 @@ class AppState extends ChangeNotifier {
           .map((e) => Loan.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
       settings = AppSettings.fromJson(results[3] as Map<String, dynamic>);
+      expenses = (results[4] as List<dynamic>)
+          .map((e) => Expense.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
       loading = false;
       notifyListeners();
     } on ApiException catch (e) {
@@ -222,6 +229,28 @@ class AppState extends ChangeNotifier {
     final names = seen.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return names;
+  }
+
+  // ---- expenses (miscellaneous cash withdrawals) ----
+
+  /// Records money taken out of hand for something outside the gold ledger.
+  /// Throws [ApiException] (422 when the amount exceeds cash in hand).
+  Future<void> addExpense({
+    required DateTime date,
+    required double amount,
+    required String note,
+  }) async {
+    await _api.createExpense({
+      'date': date.toIso8601String(),
+      'amount': amount,
+      'note': note,
+    });
+    await refresh();
+  }
+
+  Future<void> deleteExpense(String id) async {
+    await _api.deleteExpense(id);
+    await refresh();
   }
 
   /// If [name] matches a known party case-insensitively, return that spelling.

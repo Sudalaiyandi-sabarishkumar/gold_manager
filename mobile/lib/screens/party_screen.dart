@@ -24,11 +24,30 @@ class PartyScreen extends StatelessWidget {
     String heading,
     List<GoldTransaction> openBills,
   ) async {
-    final allocations = await showDialog<List<Map<String, dynamic>>>(
+    final totalDue = openBills.fold<double>(0, (s, b) => s + b.amountDue);
+    final amount = await showDialog<double>(
       context: context,
-      builder: (_) => _SettleDialog(heading: heading, bills: openBills),
+      builder: (_) => _AmountDialog(heading: heading, totalDue: totalDue),
     );
-    if (allocations == null || allocations.isEmpty || !context.mounted) return;
+    if (amount == null || amount <= 0 || !context.mounted) return;
+
+    // Oldest bill first: fill each one fully before spilling into the next.
+    final oldestFirst = [...openBills]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    final allocations = <Map<String, dynamic>>[];
+    var remaining = amount;
+    for (final bill in oldestFirst) {
+      if (remaining <= 0.005) break;
+      final take = remaining < bill.amountDue ? remaining : bill.amountDue;
+      if (take <= 0.005) continue;
+      allocations.add({
+        'transactionId': bill.id,
+        'amount': take,
+        'note': 'Party settlement',
+      });
+      remaining -= take;
+    }
+    if (allocations.isEmpty) return;
 
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -193,76 +212,40 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _SettleDialog extends StatefulWidget {
-  const _SettleDialog({required this.heading, required this.bills});
+/// Asks for a single total amount; [PartyScreen._settle] spreads it across
+/// that party's open bills, oldest first.
+class _AmountDialog extends StatefulWidget {
+  const _AmountDialog({required this.heading, required this.totalDue});
 
   final String heading;
-  final List<GoldTransaction> bills;
+  final double totalDue;
 
   @override
-  State<_SettleDialog> createState() => _SettleDialogState();
+  State<_AmountDialog> createState() => _AmountDialogState();
 }
 
-class _SettleDialogState extends State<_SettleDialog> {
-  final _controllers = <String, TextEditingController>{};
-  final _checked = <String>{};
+class _AmountDialogState extends State<_AmountDialog> {
+  late final TextEditingController _amount =
+      TextEditingController(text: widget.totalDue.toStringAsFixed(0));
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    for (final b in widget.bills) {
-      _controllers[b.id] = TextEditingController()..addListener(_recalc);
-    }
-  }
-
-  void _recalc() => setState(() => _error = null);
-
-  @override
   void dispose() {
-    for (final c in _controllers.values) {
-      c.dispose();
-    }
+    _amount.dispose();
     super.dispose();
   }
 
-  double _amountFor(String id) =>
-      double.tryParse(_controllers[id]!.text.trim()) ?? 0;
-  double get _total => widget.bills.fold(0, (s, b) => s + _amountFor(b.id));
-
-  void _toggle(GoldTransaction b, bool on) {
-    setState(() {
-      if (on) {
-        _checked.add(b.id);
-        _controllers[b.id]!.text = b.amountDue.toStringAsFixed(0);
-      } else {
-        _checked.remove(b.id);
-        _controllers[b.id]!.clear();
-      }
-    });
-  }
-
   void _submit() {
-    final allocations = <Map<String, dynamic>>[];
-    for (final b in widget.bills) {
-      final amt = _amountFor(b.id);
-      if (amt <= 0) continue;
-      if (amt > b.amountDue + 0.005) {
-        setState(() => _error = 'Bill of ${inr(b.totalAmount)} has only '
-            '${inr(b.amountDue)} outstanding');
-        return;
-      }
-      allocations.add({
-        'transactionId': b.id,
-        'amount': amt,
-        'note': 'Party settlement',
-      });
-    }
-    if (allocations.isEmpty) {
-      setState(() => _error = 'Enter an amount on at least one bill');
+    final v = double.tryParse(_amount.text.trim()) ?? 0;
+    if (v <= 0) {
+      setState(() => _error = 'Enter an amount');
       return;
     }
-    Navigator.pop(context, allocations);
+    if (v > widget.totalDue + 0.005) {
+      setState(() => _error = 'Only ${inr(widget.totalDue)} outstanding');
+      return;
+    }
+    Navigator.pop(context, v);
   }
 
   @override
@@ -270,82 +253,26 @@ class _SettleDialogState extends State<_SettleDialog> {
     return AlertDialog(
       backgroundColor: GoldColors.surface,
       title: Text(widget.heading, style: const TextStyle(fontSize: 16)),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tick the bills this money covers and adjust the amounts.',
-              style: TextStyle(color: GoldColors.muted, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: widget.bills.map((b) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: _checked.contains(b.id),
-                            onChanged: (v) => _toggle(b, v ?? false),
-                            activeColor: GoldColors.gold,
-                            checkColor: GoldColors.goldInk,
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    '${fmtDate(b.date)} · ${grams(b.weightGrams)}',
-                                    style: const TextStyle(fontSize: 12)),
-                                Text('due ${inr(b.amountDue)}',
-                                    style: const TextStyle(
-                                        fontSize: 11, color: GoldColors.loss)),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            width: 96,
-                            child: TextField(
-                              controller: _controllers[b.id],
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              textAlign: TextAlign.right,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                hintText: '0',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total', style: TextStyle(color: GoldColors.muted)),
-                Text(inr(_total),
-                    style: const TextStyle(
-                        fontFamily: 'monospace', fontWeight: FontWeight.w700)),
-              ],
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 6),
-              Text(_error!,
-                  style: const TextStyle(color: GoldColors.loss, fontSize: 12)),
-            ],
-          ],
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Outstanding ${inr(widget.totalDue)}',
+              style: const TextStyle(color: GoldColors.muted, fontSize: 12)),
+          const SizedBox(height: 4),
+          const Text(
+            'Applied to the oldest bill first, then the next.',
+            style: TextStyle(color: GoldColors.faint, fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amount,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: 'Amount', errorText: _error),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
       ),
       actions: [
         TextButton(

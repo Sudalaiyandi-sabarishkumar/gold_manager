@@ -220,6 +220,33 @@ class ApiClient {
     return _handle(res) as Map<String, dynamic>;
   }
 
+  // ---- expenses (miscellaneous cash withdrawals) ----
+
+  Future<List<dynamic>> getExpenses({String? query}) async {
+    final params = <String, String>{
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+    };
+    final res = await _guard(
+        _http.get(_uri('/api/expenses', params), headers: _headers));
+    return _handle(res) as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createExpense(
+      Map<String, dynamic> payload) async {
+    final res = await _guard(_http.post(
+      _uri('/api/expenses'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    ));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
+  Future<void> deleteExpense(String id) async {
+    final res = await _guard(
+        _http.delete(_uri('/api/expenses/$id'), headers: _headers));
+    _handle(res);
+  }
+
   static String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';

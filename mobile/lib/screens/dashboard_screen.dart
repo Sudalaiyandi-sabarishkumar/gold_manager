@@ -8,6 +8,7 @@ import '../widgets/coin.dart';
 import '../widgets/stock_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'add_transaction_screen.dart';
+import 'expenses_screen.dart';
 import 'history_screen.dart';
 import 'loans_screen.dart';
 import 'outstanding_screen.dart';
@@ -49,10 +50,12 @@ class DashboardScreen extends StatelessWidget {
             icon: const Icon(Icons.more_vert, size: 20),
             color: GoldColors.surface,
             onSelected: (v) {
+              if (v == 'expenses') _open(context, const ExpensesScreen());
               if (v == 'settings') _open(context, const SettingsScreen());
               if (v == 'logout') context.read<AppState>().logout();
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'expenses', child: Text('Miscellaneous')),
               PopupMenuItem(value: 'settings', child: Text('Opening balances')),
               PopupMenuItem(value: 'logout', child: Text('Log out')),
             ],
@@ -174,6 +177,15 @@ class DashboardScreen extends StatelessWidget {
                 value: _interestEarnedText(state.stock),
               ),
             ],
+            if (state.stock.totalExpenses > 0.5) ...[
+              const SizedBox(height: 8),
+              _SummaryRow(
+                label: 'MISCELLANEOUS TAKEN OUT',
+                value: inr(state.stock.totalExpenses),
+                color: GoldColors.loss,
+                onTap: () => _open(context, const ExpensesScreen()),
+              ),
+            ],
           ],
         ),
       ),
@@ -216,32 +228,43 @@ class _RealizedRow extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.color = GoldColors.gain,
+    this.onTap,
+  });
   final String label;
   final String value;
+  final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      decoration: BoxDecoration(
-        color: GoldColors.surface2,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: GoldColors.hairline),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _Eyebrow(label),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: GoldColors.gain,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: GoldColors.surface2,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: GoldColors.hairline),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _Eyebrow(label),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

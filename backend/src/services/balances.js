@@ -14,7 +14,14 @@ const round4 = (n) => Math.round((n + Number.EPSILON) * 10000) / 10000;
 
 const paidOn = (txn) => (txn.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
 
-function computeBalances({ openingCash, openingGoldGrams, transactions, loans, asOf = new Date() }) {
+function computeBalances({
+  openingCash,
+  openingGoldGrams,
+  transactions,
+  loans,
+  expenses = [],
+  asOf = new Date(),
+}) {
   const trade = replayStock(transactions);
 
   let cash = openingCash;
@@ -24,6 +31,13 @@ function computeBalances({ openingCash, openingGoldGrams, transactions, loans, a
     const paid = paidOn(t);
     if (t.type === 'sale') cash += paid;
     else cash -= paid;
+  }
+
+  // Miscellaneous cash taken out for anything outside the gold ledger.
+  let totalExpenses = 0;
+  for (const e of expenses) {
+    cash -= e.amount;
+    totalExpenses += e.amount;
   }
 
   let loanCashPrincipal = 0;
@@ -68,6 +82,7 @@ function computeBalances({ openingCash, openingGoldGrams, transactions, loans, a
     avgCostPerGram: trade.avgCostPerGram,
     goldStockValue: round2(gold * trade.avgCostPerGram),
     tradeRealizedProfit: trade.realizedProfit,
+    totalExpenses: round2(totalExpenses),
 
     loanCashPrincipal: round2(loanCashPrincipal),
     loanCashInterestAccrued: round2(loanCashInterest),

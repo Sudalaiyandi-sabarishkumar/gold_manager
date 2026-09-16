@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Loan = require('../models/Loan');
 const Transaction = require('../models/Transaction');
+const Expense = require('../models/Expense');
 const Settings = require('../models/Settings');
 const { serializeLoan, accruedInterest, roundFor } = require('../services/loans');
 const { computeBalances } = require('../services/balances');
@@ -10,16 +11,18 @@ const ah = require('../lib/asyncHandler');
 const router = express.Router();
 
 async function available(kind) {
-  const [s, transactions, loans] = await Promise.all([
+  const [s, transactions, loans, expenses] = await Promise.all([
     Settings.current(),
     Transaction.find().lean(),
     Loan.find().lean(),
+    Expense.find().lean(),
   ]);
   const b = computeBalances({
     openingCash: s.openingCash,
     openingGoldGrams: s.openingGoldGrams,
     transactions,
     loans,
+    expenses,
   });
   return kind === 'cash' ? b.cashInHand : b.goldInStockGrams;
 }
