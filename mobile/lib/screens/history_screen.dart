@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../utils/csv_export.dart';
 import '../utils/format.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
@@ -29,6 +30,51 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  Future<void> _export(List<GoldTransaction> rows) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final csv = buildCsv(
+        [
+          'Date',
+          'Type',
+          'Party',
+          'Weight (g)',
+          'Rate/g',
+          'Total',
+          'Paid',
+          'Due',
+          'Status',
+          'Balance after (g)',
+          'Profit',
+          'Note',
+        ],
+        rows
+            .map((t) => [
+                  csvDate(t.date),
+                  t.isPurchase ? 'Purchase' : 'Sale',
+                  t.party,
+                  t.weightGrams.toStringAsFixed(2),
+                  t.ratePerGram.toStringAsFixed(2),
+                  t.totalAmount.toStringAsFixed(2),
+                  t.amountPaid.toStringAsFixed(2),
+                  t.amountDue.toStringAsFixed(2),
+                  t.paymentStatus,
+                  t.balanceAfter?.toStringAsFixed(2) ?? '',
+                  t.profit?.toStringAsFixed(2) ?? '',
+                  t.note,
+                ])
+            .toList(),
+      );
+      await shareCsv(label: 'history', csv: csv);
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not export the file')),
+        );
+      }
+    }
   }
 
   void _clearAll() {
@@ -97,6 +143,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('History'),
         actions: [
+          IconButton(
+            tooltip: 'Download CSV',
+            icon: const Icon(Icons.ios_share, size: 20),
+            onPressed: rows.isEmpty ? null : () => _export(rows),
+          ),
           if (_hasFilters)
             TextButton(onPressed: _clearAll, child: const Text('Clear')),
         ],

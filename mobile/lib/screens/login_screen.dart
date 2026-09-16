@@ -61,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Gold Manager',
+                        'AVS',
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall

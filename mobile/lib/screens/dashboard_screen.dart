@@ -35,7 +35,7 @@ class DashboardScreen extends StatelessWidget {
           children: [
             Coin(),
             SizedBox(width: 8),
-            Text('Gold Manager',
+            Text('AVS',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
           ],
         ),
