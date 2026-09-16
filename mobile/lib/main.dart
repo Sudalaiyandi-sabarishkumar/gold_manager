@@ -21,7 +21,7 @@ class GoldManagerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gold Manager',
+      title: 'AVS',
       debugShowCheckedModeBanner: false,
       theme: buildGoldTheme(),
       home: const _Root(),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/loan.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../utils/csv_export.dart';
 import '../utils/format.dart';
 import 'add_loan_screen.dart';
 import 'loan_detail_screen.dart';
@@ -27,6 +28,59 @@ class _LoansScreenState extends State<LoansScreen> {
     super.dispose();
   }
 
+  Future<void> _export(List<Loan> loans) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final csv = buildCsv(
+        [
+          'Date given',
+          'Kind',
+          'Borrower',
+          'Principal',
+          'Interest rate',
+          'Per',
+          'Unit',
+          'Count start day',
+          'Status',
+          'Days elapsed',
+          'Accrued interest',
+          'Outstanding',
+          'Repaid on',
+          'Principal returned',
+          'Interest received',
+          'Note',
+        ],
+        loans
+            .map((l) => [
+                  csvDate(l.date),
+                  l.isGold ? 'Gold' : 'Cash',
+                  l.party,
+                  l.principal.toStringAsFixed(2),
+                  l.interestRate.toStringAsFixed(2),
+                  l.interestRefAmount.toStringAsFixed(2),
+                  l.interestUnit,
+                  l.countStartDay ? 'Yes' : 'No',
+                  l.status,
+                  l.daysElapsed.toString(),
+                  l.accruedInterest.toStringAsFixed(2),
+                  l.outstanding.toStringAsFixed(2),
+                  l.repayment == null ? '' : csvDate(l.repayment!.date),
+                  l.repayment?.principalReturned.toStringAsFixed(2) ?? '',
+                  l.repayment?.interestPaid.toStringAsFixed(2) ?? '',
+                  l.note,
+                ])
+            .toList(),
+      );
+      await shareCsv(label: 'loans', csv: csv);
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not export the file')),
+        );
+      }
+    }
+  }
+
   List<Loan> _apply(List<Loan> all) {
     final q = _query.trim().toLowerCase();
     return all.where((l) {
@@ -46,7 +100,16 @@ class _LoansScreenState extends State<LoansScreen> {
     final loans = _apply(context.watch<AppState>().loans);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Loans')),
+      appBar: AppBar(
+        title: const Text('Loans'),
+        actions: [
+          IconButton(
+            tooltip: 'Download CSV',
+            icon: const Icon(Icons.ios_share, size: 20),
+            onPressed: loans.isEmpty ? null : () => _export(loans),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: GoldColors.gold,
         foregroundColor: GoldColors.goldInk,

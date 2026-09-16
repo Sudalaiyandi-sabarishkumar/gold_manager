@@ -1,6 +1,7 @@
 const express = require('express');
 const Transaction = require('../models/Transaction');
 const Loan = require('../models/Loan');
+const Expense = require('../models/Expense');
 const Settings = require('../models/Settings');
 const { replayStock } = require('../services/stock');
 const { outstanding } = require('../services/payments');
@@ -13,10 +14,11 @@ const router = express.Router();
 router.get(
   '/',
   ah(async (req, res) => {
-    const [settings, txns, loans] = await Promise.all([
+    const [settings, txns, loans, expenses] = await Promise.all([
       Settings.current(),
       Transaction.find().lean(),
       Loan.find().lean(),
+      Expense.find().lean(),
     ]);
 
     const trade = replayStock(txns);
@@ -26,6 +28,7 @@ router.get(
       openingGoldGrams: settings.openingGoldGrams,
       transactions: txns,
       loans,
+      expenses,
     });
 
     res.json({
@@ -55,6 +58,9 @@ router.get(
       loanGoldOutstandingGrams: b.loanGoldOutstandingGrams,
       interestEarnedCash: b.interestEarnedCash,
       interestEarnedGoldGrams: b.interestEarnedGoldGrams,
+
+      // miscellaneous cash withdrawals
+      totalExpenses: b.totalExpenses,
     });
   })
 );

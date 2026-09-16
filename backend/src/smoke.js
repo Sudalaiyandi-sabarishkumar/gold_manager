@@ -173,6 +173,31 @@ async function main() {
   check('Kumar now owes only bill S-121 (₹1,22,400)',
     kumar && kumar.count === 1 && approx(kumar.totalDue, 122400, 1));
 
+  // --- miscellaneous expenses: cash out for anything outside the ledger ---
+  const cashBefore = (await GET('/api/stock', H)).body.cashInHand;
+  r = await POST('/api/expenses', H, { amount: 20000, note: 'Personal use' });
+  check('record ₹20,000 expense -> 201', r.status === 201 && approx(r.body.amount, 20000));
+  const expenseId = r.body.id;
+
+  r = await GET('/api/stock', H);
+  check('cash in hand drops by 20,000', approx(r.body.cashInHand, cashBefore - 20000, 1));
+  check('/api/stock reports totalExpenses = 20,000', approx(r.body.totalExpenses, 20000, 1));
+
+  r = await GET('/api/expenses', H);
+  check('expenses list has 1 entry', r.body.length === 1 && r.body[0].note === 'Personal use');
+
+  check('search expenses q=personal -> 1 match',
+    (await GET('/api/expenses?q=personal', H)).body.length === 1);
+  check('search expenses q=nomatch -> 0', (await GET('/api/expenses?q=nomatch', H)).body.length === 0);
+
+  check('expense exceeding cash in hand -> 422',
+    (await POST('/api/expenses', H, { amount: 999999999 })).status === 422);
+
+  r = await DEL(`/api/expenses/${expenseId}`, H);
+  check('delete expense -> ok', r.status === 200 && r.body.ok === true);
+  check('cash in hand restored', approx((await GET('/api/stock', H)).body.cashInHand, cashBefore, 1));
+  check('expenses list empty again', (await GET('/api/expenses', H)).body.length === 0);
+
   server.close();
   await mongoose.disconnect();
   await mem.stop();

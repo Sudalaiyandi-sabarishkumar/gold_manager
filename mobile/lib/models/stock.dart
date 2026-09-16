@@ -19,6 +19,7 @@ class StockSummary {
     required this.loanGoldOutstandingGrams,
     required this.interestEarnedCash,
     required this.interestEarnedGoldGrams,
+    required this.totalExpenses,
   });
 
   // Physical position
@@ -48,6 +49,9 @@ class StockSummary {
   final double interestEarnedCash;
   final double interestEarnedGoldGrams;
 
+  // Miscellaneous cash withdrawals
+  final double totalExpenses;
+
   static const StockSummary empty = StockSummary(
     cashInHand: 0,
     weightGrams: 0,
@@ -68,6 +72,7 @@ class StockSummary {
     loanGoldOutstandingGrams: 0,
     interestEarnedCash: 0,
     interestEarnedGoldGrams: 0,
+    totalExpenses: 0,
   );
 
   static double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
@@ -92,5 +97,6 @@ class StockSummary {
         loanGoldOutstandingGrams: _d(j['loanGoldOutstandingGrams']),
         interestEarnedCash: _d(j['interestEarnedCash']),
         interestEarnedGoldGrams: _d(j['interestEarnedGoldGrams']),
+        totalExpenses: _d(j['totalExpenses']),
       );
 }
