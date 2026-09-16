@@ -11,7 +11,7 @@ class Coin extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(size * 0.22),
       child: Image.asset(
-        'assets/avs.jpeg',
+        'assets/avs_transparent.jpeg',
         width: size,
         height: size,
         fit: BoxFit.cover,

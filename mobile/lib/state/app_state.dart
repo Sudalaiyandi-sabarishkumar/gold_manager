@@ -133,23 +133,39 @@ class AppState extends ChangeNotifier {
     required String note,
     required double amountPaid,
   }) async {
-    final res = await _api.createTransaction({
-      'type': type,
-      'date': date.toIso8601String(),
-      'party': party,
-      'weightGrams': weightGrams,
-      'ratePerGram': ratePerGram,
-      'note': note,
-      'amountPaid': amountPaid,
-    });
-    final txn = GoldTransaction.fromJson(res);
-    await refresh();
-    return txn;
+    loading = true;
+    notifyListeners();
+    try {
+      final res = await _api.createTransaction({
+        'type': type,
+        'date': date.toIso8601String(),
+        'party': party,
+        'weightGrams': weightGrams,
+        'ratePerGram': ratePerGram,
+        'note': note,
+        'amountPaid': amountPaid,
+      });
+      final txn = GoldTransaction.fromJson(res);
+      await refresh();
+      return txn;
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> deleteTransaction(String id) async {
-    await _api.deleteTransaction(id);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.deleteTransaction(id);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Records an instalment against a transaction. Throws [ApiException]
@@ -160,54 +176,118 @@ class AppState extends ChangeNotifier {
     DateTime? date,
     String note = '',
   }) async {
-    await _api.addPayment(transactionId,
-        amount: amount, date: date, note: note);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.addPayment(transactionId,
+          amount: amount, date: date, note: note);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> deletePayment(String transactionId, String paymentId) async {
-    await _api.deletePayment(transactionId, paymentId);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.deletePayment(transactionId, paymentId);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Records payments against several bills at once (person-level settlement).
   /// Each entry: { transactionId, amount, note? }.
   Future<void> settleParty(List<Map<String, dynamic>> allocations) async {
-    await _api.settleParty(allocations);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.settleParty(allocations);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   // ---- loans ----
 
   Future<Loan> createLoan(Map<String, dynamic> payload) async {
-    final res = await _api.createLoan(payload);
-    final loan = Loan.fromJson(res);
-    await refresh();
-    return loan;
+    loading = true;
+    notifyListeners();
+    try {
+      final res = await _api.createLoan(payload);
+      final loan = Loan.fromJson(res);
+      await refresh();
+      return loan;
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> repayLoan(String id, Map<String, dynamic> body) async {
-    await _api.repayLoan(id, body);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.repayLoan(id, body);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> reopenLoan(String id) async {
-    await _api.reopenLoan(id);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.reopenLoan(id);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> deleteLoan(String id) async {
-    await _api.deleteLoan(id);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.deleteLoan(id);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> updateSettings(
       {double? openingCash, double? openingGoldGrams}) async {
-    await _api.updateSettings({
-      if (openingCash != null) 'openingCash': openingCash,
-      if (openingGoldGrams != null) 'openingGoldGrams': openingGoldGrams,
-    });
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.updateSettings({
+        if (openingCash != null) 'openingCash': openingCash,
+        if (openingGoldGrams != null) 'openingGoldGrams': openingGoldGrams,
+      });
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Distinct party names already used across transactions and loans,
@@ -240,17 +320,33 @@ class AppState extends ChangeNotifier {
     required double amount,
     required String note,
   }) async {
-    await _api.createExpense({
-      'date': date.toIso8601String(),
-      'amount': amount,
-      'note': note,
-    });
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.createExpense({
+        'date': date.toIso8601String(),
+        'amount': amount,
+        'note': note,
+      });
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> deleteExpense(String id) async {
-    await _api.deleteExpense(id);
-    await refresh();
+    loading = true;
+    notifyListeners();
+    try {
+      await _api.deleteExpense(id);
+      await refresh();
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// If [name] matches a known party case-insensitively, return that spelling.

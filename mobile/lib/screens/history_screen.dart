@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
-import '../utils/csv_export.dart';
 import '../utils/format.dart';
+import '../utils/pdf_export.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -35,8 +35,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _export(List<GoldTransaction> rows) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final csv = buildCsv(
-        [
+      await downloadPdf(
+        title: 'History',
+        headers: const [
           'Date',
           'Type',
           'Party',
@@ -46,32 +47,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
           'Paid',
           'Due',
           'Status',
-          'Balance after (g)',
-          'Profit',
           'Note',
         ],
-        rows
+        rows: rows
             .map((t) => [
-                  csvDate(t.date),
+                  pdfDate(t.date),
                   t.isPurchase ? 'Purchase' : 'Sale',
-                  t.party,
+                  t.party.isEmpty ? '-' : t.party,
                   t.weightGrams.toStringAsFixed(2),
-                  t.ratePerGram.toStringAsFixed(2),
-                  t.totalAmount.toStringAsFixed(2),
-                  t.amountPaid.toStringAsFixed(2),
-                  t.amountDue.toStringAsFixed(2),
+                  pdfAmount(t.ratePerGram),
+                  pdfAmount(t.totalAmount),
+                  pdfAmount(t.amountPaid),
+                  pdfAmount(t.amountDue),
                   t.paymentStatus,
-                  t.balanceAfter?.toStringAsFixed(2) ?? '',
-                  t.profit?.toStringAsFixed(2) ?? '',
-                  t.note,
+                  t.note.isEmpty ? '-' : t.note,
                 ])
             .toList(),
       );
-      await shareCsv(label: 'history', csv: csv);
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('PDF saved')),
+        );
+      }
     } catch (_) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Could not export the file')),
+          const SnackBar(content: Text('Could not download the file')),
         );
       }
     }
@@ -144,8 +145,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         title: const Text('History'),
         actions: [
           IconButton(
-            tooltip: 'Download CSV',
-            icon: const Icon(Icons.ios_share, size: 20),
+            tooltip: 'Download PDF',
+            icon: const Icon(Icons.download_outlined, size: 20),
             onPressed: rows.isEmpty ? null : () => _export(rows),
           ),
           if (_hasFilters)

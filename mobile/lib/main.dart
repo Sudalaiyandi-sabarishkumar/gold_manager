@@ -25,6 +25,40 @@ class GoldManagerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildGoldTheme(),
       home: const _Root(),
+      // A thin bar at the top of every screen (and dialog) whenever the app
+      // is waiting on the server — one place to show "API loading" globally.
+      builder: (context, child) => Stack(
+        children: [
+          if (child != null) child,
+          if (context.watch<AppState>().loading) const _GlobalLoader(),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlobalLoader extends StatelessWidget {
+  const _GlobalLoader();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: IgnorePointer(
+          child: SizedBox(
+            height: 3,
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              backgroundColor: GoldColors.hairline,
+              valueColor: AlwaysStoppedAnimation(GoldColors.gold),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

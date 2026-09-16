@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/loan.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
-import '../utils/csv_export.dart';
 import '../utils/format.dart';
+import '../utils/pdf_export.dart';
 import 'add_loan_screen.dart';
 import 'loan_detail_screen.dart';
 
@@ -28,54 +28,53 @@ class _LoansScreenState extends State<LoansScreen> {
     super.dispose();
   }
 
+  /// Formats an amount in a loan's own unit — Rs. for cash, grams for gold.
+  String _amt(Loan l, num n) =>
+      l.isCash ? pdfAmount(n) : '${n.toStringAsFixed(2)} g';
+
   Future<void> _export(List<Loan> loans) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final csv = buildCsv(
-        [
+      await downloadPdf(
+        title: 'Loans',
+        headers: const [
           'Date given',
           'Kind',
           'Borrower',
           'Principal',
-          'Interest rate',
-          'Per',
-          'Unit',
-          'Count start day',
+          'Rate',
           'Status',
-          'Days elapsed',
-          'Accrued interest',
+          'Days',
+          'Accrued',
           'Outstanding',
           'Repaid on',
-          'Principal returned',
-          'Interest received',
           'Note',
         ],
-        loans
+        rows: loans
             .map((l) => [
-                  csvDate(l.date),
+                  pdfDate(l.date),
                   l.isGold ? 'Gold' : 'Cash',
-                  l.party,
-                  l.principal.toStringAsFixed(2),
-                  l.interestRate.toStringAsFixed(2),
-                  l.interestRefAmount.toStringAsFixed(2),
-                  l.interestUnit,
-                  l.countStartDay ? 'Yes' : 'No',
+                  l.party.isEmpty ? '-' : l.party,
+                  _amt(l, l.principal),
+                  '${_amt(l, l.interestRate)} / ${l.interestUnit} per ${_amt(l, l.interestRefAmount)}',
                   l.status,
-                  l.daysElapsed.toString(),
-                  l.accruedInterest.toStringAsFixed(2),
-                  l.outstanding.toStringAsFixed(2),
-                  l.repayment == null ? '' : csvDate(l.repayment!.date),
-                  l.repayment?.principalReturned.toStringAsFixed(2) ?? '',
-                  l.repayment?.interestPaid.toStringAsFixed(2) ?? '',
-                  l.note,
+                  l.status == 'open' ? l.daysElapsed.toString() : '-',
+                  l.status == 'open' ? _amt(l, l.accruedInterest) : '-',
+                  l.status == 'open' ? _amt(l, l.outstanding) : '-',
+                  l.repayment == null ? '-' : pdfDate(l.repayment!.date),
+                  l.note.isEmpty ? '-' : l.note,
                 ])
             .toList(),
       );
-      await shareCsv(label: 'loans', csv: csv);
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('PDF saved')),
+        );
+      }
     } catch (_) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Could not export the file')),
+          const SnackBar(content: Text('Could not download the file')),
         );
       }
     }
@@ -104,8 +103,8 @@ class _LoansScreenState extends State<LoansScreen> {
         title: const Text('Loans'),
         actions: [
           IconButton(
-            tooltip: 'Download CSV',
-            icon: const Icon(Icons.ios_share, size: 20),
+            tooltip: 'Download PDF',
+            icon: const Icon(Icons.download_outlined, size: 20),
             onPressed: loans.isEmpty ? null : () => _export(loans),
           ),
         ],
