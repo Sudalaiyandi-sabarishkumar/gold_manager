@@ -20,7 +20,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _form = GlobalKey<FormState>();
   final _party = TextEditingController();
   final _weight = TextEditingController();
-  final _rate = TextEditingController();
+  final _totalAmount = TextEditingController();
   final _paid = TextEditingController();
   final _note = TextEditingController();
   DateTime _date = DateTime.now();
@@ -28,8 +28,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   bool _saving = false;
 
   double get _w => double.tryParse(_weight.text.trim()) ?? 0;
-  double get _r => double.tryParse(_rate.text.trim()) ?? 0;
-  double get _total => _w * _r;
+  double get _total => double.tryParse(_totalAmount.text.trim()) ?? 0;
+  double get _r => _w > 0 ? _total / _w : 0;
   double get _paidNow {
     if (_paidInFull) return _total;
     final v = double.tryParse(_paid.text.trim()) ?? 0;
@@ -40,7 +40,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void initState() {
     super.initState();
     _weight.addListener(_recalc);
-    _rate.addListener(_recalc);
+    _totalAmount.addListener(_recalc);
     _paid.addListener(_recalc);
   }
 
@@ -50,7 +50,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void dispose() {
     _party.dispose();
     _weight.dispose();
-    _rate.dispose();
+    _totalAmount.dispose();
     _paid.dispose();
     _note.dispose();
     super.dispose();
@@ -209,16 +209,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               },
             ),
             const SizedBox(height: 16),
-            const _Label('RATE / GRAM'),
+            const _Label('TOTAL AMOUNT'),
             const SizedBox(height: 6),
             TextFormField(
-              controller: _rate,
+              controller: _totalAmount,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(hintText: '0'),
               validator: (v) {
                 final d = double.tryParse((v ?? '').trim());
-                if (d == null || d <= 0) return 'Enter a rate';
+                if (d == null || d <= 0) return 'Enter a total amount';
                 return null;
               },
             ),
@@ -228,9 +228,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const _Label('TOTAL'),
+                const _Label('RATE / GRAM'),
                 Text(
-                  _total > 0 ? inr(_total) : '—',
+                  (_w > 0 && _total > 0) ? '${inr(_r)} / g' : '—',
                   style: const TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w600),
                 ),
