@@ -53,7 +53,10 @@ function replayQuickCheck(txns, seed = {}) {
     }
   }
 
-  const profit = salesTotal - purchasesTotal + netQty * carryRate;
+  // Project closing the remaining position at whichever rate actually
+  // applies: carryRate while in excess, saleRate while in demand.
+  const applicableRate = netQty > 0 ? carryRate : netQty < 0 ? saleRate : 0;
+  const profit = salesTotal - purchasesTotal + netQty * applicableRate;
 
   return { netQtyGrams: netQty, carryRate, saleRate, purchasesTotal, salesTotal, profit };
 }

@@ -21,14 +21,17 @@ const int kQuickCheckBaseLimitGrams = 500;
 /// when no purchase has happened yet. While extending an existing excess,
 /// purchases blend into a weighted-average cost; while covering a demand
 /// (fully or partially), a purchase instead resets `carryRate` straight to
-/// its own price, since it's the latest purchase. This still feeds the
-/// "excess/demand amount" and profit figures exactly as before.
+/// its own price, since it's the latest purchase.
 ///
-/// `saleRate` is the mirror image, tracked only for showing a safe buy-back
-/// price while in demand: it is built **only from sales**, blending while
-/// extending an existing demand, and reset to the latest sale's own price
-/// whenever a sale starts a fresh demand or (fully/partially) covers an
-/// excess. Purchases never touch it.
+/// `saleRate` is the mirror image: it is built **only from sales**,
+/// blending while extending an existing demand, and reset to the latest
+/// sale's own price whenever a sale starts a fresh demand or (fully/
+/// partially) covers an excess. Purchases never touch it.
+///
+/// `profit` projects closing the *current* remaining position at whichever
+/// rate actually applies to it — `carryRate` while in excess (you'd sell
+/// it), `saleRate` while in demand (you'd buy it back relative to what it
+/// was already sold for). This is the same rate `safePrice` shows.
 class QuickCheckResult {
   const QuickCheckResult({
     required this.transactions,
@@ -113,7 +116,15 @@ class QuickCheckResult {
       }
     }
 
-    final profit = salesTotal - purchasesTotal + (netQty * carryRate);
+    // Project closing the remaining position at whichever rate actually
+    // applies to it: the purchase-based cost basis while in excess (you'd
+    // sell it), or the sale-based rate while in demand (you'd buy it back
+    // relative to what you already received for it) — the same rate
+    // `safePrice` shows. Using carryRate here even in demand would price
+    // covering a short against an unrelated purchase, not against what it
+    // was actually sold for.
+    final applicableRate = netQty > 0 ? carryRate : (netQty < 0 ? saleRate : 0.0);
+    final profit = salesTotal - purchasesTotal + (netQty * applicableRate);
 
     return QuickCheckResult(
       transactions: tradeable,

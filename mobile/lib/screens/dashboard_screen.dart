@@ -203,7 +203,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 18),
-            _RealizedRow(value: state.stock.realizedProfit),
+            // _RealizedRow(value: state.stock.realizedProfit),
             if (state.stock.interestEarnedCash > 0.5 ||
                 state.stock.interestEarnedGoldGrams > 0.0005) ...[
               const SizedBox(height: 8),

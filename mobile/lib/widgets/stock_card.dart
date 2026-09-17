@@ -49,10 +49,10 @@ class StockCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            'avg cost ${inr2(stock.avgCostPerGram)} / g  ·  stock value ${inr(stock.stockValue)}',
-            style: const TextStyle(color: GoldColors.muted, fontSize: 12),
-          ),
+          // Text(
+          //   'avg cost ${inr2(stock.avgCostPerGram)} / g  ·  stock value ${inr(stock.stockValue)}',
+          //   style: const TextStyle(color: GoldColors.muted, fontSize: 12),
+          // ),
         ],
       ),
     );

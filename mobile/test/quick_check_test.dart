@@ -133,6 +133,42 @@ void main() {
   });
 
   test(
+      'profit while in demand projects closing at saleRate, not carryRate: '
+      'a clean round trip plus an oversold remainder should value that '
+      'remainder against what it was sold for, not an unrelated purchase',
+      () {
+    // Buy 100@10 (cost 1000), sell 150@12 (revenue 1800): 100g is a clean
+    // round-trip (+200 real profit); the other 50g was sold with nothing to
+    // back it (a demand), so it should be valued at the sale's own rate
+    // (12), not the unrelated purchase rate (10).
+    final result = QuickCheckResult.compute([
+      _txn('purchase', d1, 100, 10),
+      _txn('sale', d2, 150, 12),
+    ]);
+    expect(result.netQtyGrams, -50);
+    expect(result.isDemand, true);
+    expect(result.carryRate, 10);
+    expect(result.saleRate, 12);
+    // 1800 - 1000 + (-50 * 12) = 200, matching the real 100g*(12-10) profit
+    // exactly, with the oversold 50g contributing 0 (breakeven against its
+    // own sale price) rather than the wrong, inflated 300 that using
+    // carryRate(10) here would produce.
+    expect(result.profit, 200);
+  });
+
+  test('profit while in excess still uses carryRate, unchanged', () {
+    final result = QuickCheckResult.compute([
+      _txn('sale', d1, 100, 12),
+      _txn('purchase', d2, 150, 10),
+    ]);
+    expect(result.netQtyGrams, 50);
+    expect(result.isExcess, true);
+    // 1200 - 1500 + (50 * 10) = 200 — same shape as the demand test above,
+    // mirrored, confirming the excess side is untouched by this fix.
+    expect(result.profit, 200);
+  });
+
+  test(
       'seeding: splitting a scenario at any boundary and resuming with the '
       'prefix result as a seed reproduces the same final result as one '
       'pass over everything (this is what "shrink" relies on)', () {
