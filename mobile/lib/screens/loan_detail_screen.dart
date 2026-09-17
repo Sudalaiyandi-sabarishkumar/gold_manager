@@ -138,7 +138,7 @@ class LoanDetailScreen extends StatelessWidget {
                             sub: 'principal'),
                         _Mini(
                           label: 'interest so far',
-                          value: loan.amount2(loan.accruedInterest),
+                          value: loan.amount(loan.accruedInterest),
                           sub: 'accrued',
                           color: GoldColors.gain,
                           alignEnd: true,
@@ -183,7 +183,7 @@ class LoanDetailScreen extends StatelessWidget {
               _KvRow(
                 label: 'Interest received',
                 child: Text(
-                  loan.amount2(loan.repayment!.interestPaid),
+                  loan.amount(loan.repayment!.interestPaid),
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,

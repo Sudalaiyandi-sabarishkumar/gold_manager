@@ -153,7 +153,7 @@ class TransactionDetailScreen extends StatelessWidget {
                 value: txn.party.isEmpty ? '—' : txn.party,
               ),
               _KvRow(label: 'Weight', value: grams(txn.weightGrams)),
-              _KvRow(label: 'Rate / gram', value: inr2(txn.ratePerGram)),
+              _KvRow(label: 'Rate / gram', value: inr(txn.ratePerGram)),
               _KvRow(label: 'Total', value: inr(txn.totalAmount)),
               if (txn.balanceAfter != null)
                 _KvRow(label: 'Stock after', value: grams(txn.balanceAfter!)),

@@ -54,7 +54,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   pdfDate(t.date),
                   t.isPurchase ? 'Purchase' : 'Sale',
                   t.party.isEmpty ? '-' : t.party,
-                  t.weightGrams.toStringAsFixed(2),
+                  t.weightGrams.toStringAsFixed(3),
                   pdfAmount(t.ratePerGram),
                   pdfAmount(t.totalAmount),
                   pdfAmount(t.amountPaid),

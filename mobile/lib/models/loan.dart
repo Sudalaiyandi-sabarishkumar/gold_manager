@@ -62,11 +62,10 @@ class Loan {
 
   /// Format an amount in this loan's units (₹ for cash, g for gold).
   String amount(num n) => isCash ? inr(n) : grams(n);
-  String amount2(num n) => isCash ? inr2(n) : grams(n);
 
-  /// "₹100 / day per ₹1,00,000"  or  "1.50 g / month per 100.00 g"
+  /// "₹100 / day per ₹1,00,000"  or  "1.500 g / month per 100.000 g"
   String get rateLabel =>
-      '${amount2(interestRate)} / $interestUnit per ${amount2(interestRefAmount)}';
+      '${amount(interestRate)} / $interestUnit per ${amount(interestRefAmount)}';
 
   factory Loan.fromJson(Map<String, dynamic> j) => Loan(
         id: j['id'] as String,

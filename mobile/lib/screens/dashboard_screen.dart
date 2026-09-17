@@ -253,14 +253,14 @@ String _interestEarnedText(dynamic stock) {
   return parts.join('  +  ');
 }
 
-class _RealizedRow extends StatelessWidget {
-  const _RealizedRow({required this.value});
-  final double value;
+// class _RealizedRow extends StatelessWidget {
+//   const _RealizedRow({required this.value});
+//   final double value;
 
-  @override
-  Widget build(BuildContext context) =>
-      _SummaryRow(label: 'REALIZED PROFIT', value: inr(value));
-}
+//   @override
+//   Widget build(BuildContext context) =>
+//       _SummaryRow(label: 'REALIZED PROFIT', value: inr(value));
+// }
 
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({

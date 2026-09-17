@@ -247,7 +247,7 @@ class QuickCheckScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  hasSafePrice ? '${inr2(result.safePrice)} / g' : '—',
+                  hasSafePrice ? '${inr(result.safePrice)} / g' : '—',
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w600),
                 ),

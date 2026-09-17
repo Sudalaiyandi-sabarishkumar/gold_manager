@@ -32,8 +32,8 @@ void main() {
     expect(inr(5086856), '₹50,86,856');
   });
 
-  test('grams keeps two decimals', () {
-    expect(grams(860), '860.00 g');
+  test('grams keeps three decimals', () {
+    expect(grams(860), '860.000 g');
   });
 
   test('signedInr uses + / − prefixes', () {

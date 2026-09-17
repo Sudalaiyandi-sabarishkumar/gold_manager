@@ -30,7 +30,7 @@ class _LoansScreenState extends State<LoansScreen> {
 
   /// Formats an amount in a loan's own unit — Rs. for cash, grams for gold.
   String _amt(Loan l, num n) =>
-      l.isCash ? pdfAmount(n) : '${n.toStringAsFixed(2)} g';
+      l.isCash ? pdfAmount(n) : '${n.toStringAsFixed(3)} g';
 
   Future<void> _export(List<Loan> loans) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -290,7 +290,7 @@ class _LoanRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   open
-                      ? '${loan.daysElapsed}d · +${loan.amount2(loan.accruedInterest)}'
+                      ? '${loan.daysElapsed}d · +${loan.amount(loan.accruedInterest)}'
                       : '',
                   style: const TextStyle(fontSize: 10, color: GoldColors.faint),
                 ),

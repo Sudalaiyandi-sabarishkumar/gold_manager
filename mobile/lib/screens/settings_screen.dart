@@ -24,7 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final s = context.read<AppState>().settings;
     _cash = TextEditingController(text: s.openingCash.toStringAsFixed(0));
-    _gold = TextEditingController(text: s.openingGoldGrams.toStringAsFixed(2));
+    _gold = TextEditingController(text: s.openingGoldGrams.toStringAsFixed(3));
   }
 
   @override
