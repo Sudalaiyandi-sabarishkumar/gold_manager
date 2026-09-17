@@ -13,19 +13,28 @@ const int kQuickCheckBaseLimitGrams = 500;
 ///
 /// `netQtyGrams` is a running signed weight (+ve = bought more than sold so
 /// far = excess on hand; -ve = sold more than bought = demand/short).
-/// `carryRate` is the reference price of that position — it is built **only
-/// from purchases**; a sale changes `netQtyGrams` but never touches
-/// `carryRate`, even when the sale pushes the position into demand (it just
-/// keeps showing the last purchase-based rate). It only reads as "no rate"
-/// (0) when no purchase has happened yet. While extending an existing
-/// excess, purchases blend into a weighted-average cost; while covering a
-/// demand (fully or partially), a purchase instead resets `carryRate`
-/// straight to its own price, since it's the latest purchase.
+///
+/// `carryRate` is the excess's cost basis — it is built **only from
+/// purchases**; a sale changes `netQtyGrams` but never touches `carryRate`,
+/// even when the sale pushes the position into demand (it just keeps
+/// showing the last purchase-based rate). It only reads as "no rate" (0)
+/// when no purchase has happened yet. While extending an existing excess,
+/// purchases blend into a weighted-average cost; while covering a demand
+/// (fully or partially), a purchase instead resets `carryRate` straight to
+/// its own price, since it's the latest purchase. This still feeds the
+/// "excess/demand amount" and profit figures exactly as before.
+///
+/// `saleRate` is the mirror image, tracked only for showing a safe buy-back
+/// price while in demand: it is built **only from sales**, blending while
+/// extending an existing demand, and reset to the latest sale's own price
+/// whenever a sale starts a fresh demand or (fully/partially) covers an
+/// excess. Purchases never touch it.
 class QuickCheckResult {
   const QuickCheckResult({
     required this.transactions,
     required this.netQtyGrams,
     required this.carryRate,
+    required this.saleRate,
     required this.purchasesTotal,
     required this.salesTotal,
     required this.profit,
@@ -34,6 +43,7 @@ class QuickCheckResult {
   final List<GoldTransaction> transactions;
   final double netQtyGrams;
   final double carryRate;
+  final double saleRate;
   final double purchasesTotal;
   final double salesTotal;
   final double profit;
@@ -43,12 +53,18 @@ class QuickCheckResult {
   bool get isDemand => netQtyGrams < 0;
   bool get isBalanced => netQtyGrams == 0;
 
+  /// The breakeven price for the current position: sell above this while in
+  /// excess, or buy below this while in demand, to come out ahead. 0 when
+  /// there's nothing to base it on yet (e.g. demand with no sale recorded).
+  double get safePrice => isExcess ? carryRate : (isDemand ? saleRate : 0);
+
   static QuickCheckResult compute(List<GoldTransaction> all) {
     final tradeable = all.where((t) => t.isPurchase || t.isSale).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
     double netQty = 0;
     double carryRate = 0;
+    double saleRate = 0;
     double purchasesTotal = 0;
     double salesTotal = 0;
 
@@ -56,10 +72,20 @@ class QuickCheckResult {
       final before = netQty;
       if (t.isSale) {
         salesTotal += t.totalAmount;
-        netQty = before - t.weightGrams;
-        // A sale never touches carryRate, no matter the outcome: it stays at
-        // the last purchase-based rate (or 0/unset if no purchase has
-        // happened yet), even if this sale pushes into demand.
+        if (before < 0) {
+          // Extending an existing demand: blend into the weighted-average
+          // sale price that created it.
+          final newWeight = before - t.weightGrams;
+          saleRate = (before.abs() * saleRate + t.weightGrams * t.ratePerGram) /
+              (before.abs() + t.weightGrams);
+          netQty = newWeight;
+        } else {
+          // before >= 0: starting fresh, or (partially or fully) covering an
+          // excess. Any sale here resets saleRate to its own price.
+          saleRate = t.ratePerGram;
+          netQty = before - t.weightGrams;
+        }
+        // A sale never touches carryRate — see class doc.
       } else {
         purchasesTotal += t.totalAmount;
         if (before > 0) {
@@ -76,6 +102,7 @@ class QuickCheckResult {
           carryRate = t.ratePerGram;
           netQty = before + t.weightGrams;
         }
+        // A purchase never touches saleRate — see class doc.
       }
     }
 
@@ -85,6 +112,7 @@ class QuickCheckResult {
       transactions: tradeable,
       netQtyGrams: netQty,
       carryRate: carryRate,
+      saleRate: saleRate,
       purchasesTotal: purchasesTotal,
       salesTotal: salesTotal,
       profit: profit,
@@ -106,6 +134,7 @@ class QuickCheckScreen extends StatelessWidget {
         ? GoldColors.gain
         : (result.isDemand ? GoldColors.loss : GoldColors.muted);
     final hasRate = result.carryRate != 0;
+    final hasSafePrice = result.safePrice != 0;
     final newestFirst = result.transactions.reversed.toList();
 
     return Scaffold(
@@ -178,15 +207,21 @@ class QuickCheckScreen extends StatelessWidget {
                       color: statusColor),
                 ),
                 const SizedBox(height: 20),
-                const Text('LAST PURCHASED AMOUNT',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        color: GoldColors.muted,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  result.isExcess
+                      ? 'SAFE TO SELL ABOVE'
+                      : (result.isDemand
+                          ? 'SAFE TO BUY BELOW'
+                          : 'SAFE PRICE'),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      color: GoldColors.muted,
+                      fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  hasRate ? '${inr2(result.carryRate)} / g' : '—',
+                  hasSafePrice ? '${inr2(result.safePrice)} / g' : '—',
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w600),
                 ),

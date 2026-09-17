@@ -85,6 +85,53 @@ void main() {
     expect(result.carryRate, 15030); // latest purchase's own rate, not 15015
   });
 
+  test('safePrice is the purchase rate (sell above it) while in excess', () {
+    final result = QuickCheckResult.compute([
+      _txn('purchase', d1, 50, 14000),
+      _txn('sale', d2, 20, 14020),
+    ]);
+    expect(result.isExcess, true);
+    expect(result.safePrice, result.carryRate);
+    expect(result.safePrice, 14000);
+  });
+
+  test(
+      'safePrice mirrors carryRate but from sales while in demand: blends '
+      'while extending, resets on any sale that starts fresh or covers an '
+      'excess', () {
+    // Mirror of the "partial cover resets to latest rate" purchase test,
+    // with purchase/sale roles swapped.
+    final result = QuickCheckResult.compute([
+      _txn('sale', d1, 100, 15000),
+      _txn('purchase', d2, 50, 15020),
+      _txn('sale', d3, 50, 15030), // blends: (50*15000+50*15030)/100
+      _txn('purchase', DateTime(2026, 1, 4), 100, 15020),
+      _txn('purchase', DateTime(2026, 1, 5), 100, 15020), // now net +100
+      _txn('sale', DateTime(2026, 1, 6), 50, 15030), // covers to +50
+    ]);
+    expect(result.netQtyGrams, 50);
+    expect(result.isExcess, true);
+    // saleRate tracked throughout even though the final state is excess.
+    expect(result.saleRate, 15030);
+  });
+
+  test('safePrice is blank (0) in demand until a sale has actually happened',
+      () {
+    final result = QuickCheckResult.compute([]);
+    expect(result.isBalanced, true);
+    expect(result.safePrice, 0);
+  });
+
+  test('safePrice tracks the sale side while in demand', () {
+    final result = QuickCheckResult.compute([
+      _txn('sale', d1, 50, 14000),
+      _txn('purchase', d2, 20, 14020),
+    ]);
+    expect(result.isDemand, true);
+    expect(result.safePrice, result.saleRate);
+    expect(result.safePrice, 14000);
+  });
+
   test('replays the full history regardless of how many entries there are',
       () {
     final txns = <GoldTransaction>[];
