@@ -4,9 +4,19 @@ const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
 
+// cashSeed/stockSeed*/shrunkThroughDate are deliberately NOT exposed here —
+// the mobile app never replays stock itself, it only displays /api/stock's
+// output, so it has no use for them. quickCheckSeed* IS exposed because
+// Quick Check's algorithm runs client-side and needs a starting point after
+// a shrink.
 const shape = (s) => ({
   openingCash: s.openingCash,
   openingGoldGrams: s.openingGoldGrams,
+  quickCheckSeedNetQtyGrams: s.quickCheckSeedNetQtyGrams || 0,
+  quickCheckSeedCarryRate: s.quickCheckSeedCarryRate || 0,
+  quickCheckSeedSaleRate: s.quickCheckSeedSaleRate || 0,
+  quickCheckSeedPurchasesTotal: s.quickCheckSeedPurchasesTotal || 0,
+  quickCheckSeedSalesTotal: s.quickCheckSeedSalesTotal || 0,
 });
 
 // GET /api/settings

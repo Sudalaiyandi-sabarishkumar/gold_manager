@@ -5,7 +5,7 @@ const Transaction = require('../models/Transaction');
 const Expense = require('../models/Expense');
 const Settings = require('../models/Settings');
 const { serializeLoan, accruedInterest, roundFor } = require('../services/loans');
-const { computeBalances } = require('../services/balances');
+const { computeBalances, balanceSeedFromSettings } = require('../services/balances');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
@@ -20,6 +20,7 @@ async function available(kind) {
   const b = computeBalances({
     openingCash: s.openingCash,
     openingGoldGrams: s.openingGoldGrams,
+    ...balanceSeedFromSettings(s),
     transactions,
     loans,
     expenses,

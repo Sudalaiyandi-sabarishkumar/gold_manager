@@ -132,6 +132,53 @@ void main() {
     expect(result.safePrice, 14000);
   });
 
+  test(
+      'seeding: splitting a scenario at any boundary and resuming with the '
+      'prefix result as a seed reproduces the same final result as one '
+      'pass over everything (this is what "shrink" relies on)', () {
+    final all = [
+      _txn('purchase', d1, 100, 15000),
+      _txn('sale', d2, 50, 15020),
+      _txn('purchase', d3, 50, 15030),
+      _txn('sale', DateTime(2026, 1, 4), 100, 15020),
+      _txn('sale', DateTime(2026, 1, 5), 100, 15020),
+      _txn('purchase', DateTime(2026, 1, 6), 50, 15030),
+    ];
+    final full = QuickCheckResult.compute(all);
+
+    for (final k in [1, 2, 3, 4, 5]) {
+      final prefix = QuickCheckResult.compute(all.sublist(0, k));
+      final resumed = QuickCheckResult.compute(
+        all.sublist(k),
+        seedNetQtyGrams: prefix.netQtyGrams,
+        seedCarryRate: prefix.carryRate,
+        seedSaleRate: prefix.saleRate,
+        seedPurchasesTotal: prefix.purchasesTotal,
+        seedSalesTotal: prefix.salesTotal,
+      );
+      expect(resumed.netQtyGrams, full.netQtyGrams, reason: 'k=$k');
+      expect(resumed.carryRate, full.carryRate, reason: 'k=$k');
+      expect(resumed.saleRate, full.saleRate, reason: 'k=$k');
+      expect(resumed.profit, full.profit, reason: 'k=$k');
+    }
+  });
+
+  test('an empty transaction list with a seed just echoes the seed back',
+      () {
+    final result = QuickCheckResult.compute(
+      const [],
+      seedNetQtyGrams: 42,
+      seedCarryRate: 15000,
+      seedSaleRate: 14000,
+      seedPurchasesTotal: 630000,
+      seedSalesTotal: 100000,
+    );
+    expect(result.netQtyGrams, 42);
+    expect(result.carryRate, 15000);
+    expect(result.saleRate, 14000);
+    expect(result.txnCount, 0);
+  });
+
   test('replays the full history regardless of how many entries there are',
       () {
     final txns = <GoldTransaction>[];

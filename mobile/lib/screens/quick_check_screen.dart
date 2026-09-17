@@ -58,15 +58,22 @@ class QuickCheckResult {
   /// there's nothing to base it on yet (e.g. demand with no sale recorded).
   double get safePrice => isExcess ? carryRate : (isDemand ? saleRate : 0);
 
-  static QuickCheckResult compute(List<GoldTransaction> all) {
+  static QuickCheckResult compute(
+    List<GoldTransaction> all, {
+    double seedNetQtyGrams = 0,
+    double seedCarryRate = 0,
+    double seedSaleRate = 0,
+    double seedPurchasesTotal = 0,
+    double seedSalesTotal = 0,
+  }) {
     final tradeable = all.where((t) => t.isPurchase || t.isSale).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    double netQty = 0;
-    double carryRate = 0;
-    double saleRate = 0;
-    double purchasesTotal = 0;
-    double salesTotal = 0;
+    double netQty = seedNetQtyGrams;
+    double carryRate = seedCarryRate;
+    double saleRate = seedSaleRate;
+    double purchasesTotal = seedPurchasesTotal;
+    double salesTotal = seedSalesTotal;
 
     for (final t in tradeable) {
       final before = netQty;
@@ -125,8 +132,16 @@ class QuickCheckScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final transactions = context.watch<AppState>().transactions;
-    final result = QuickCheckResult.compute(transactions);
+    final state = context.watch<AppState>();
+    final settings = state.settings;
+    final result = QuickCheckResult.compute(
+      state.transactions,
+      seedNetQtyGrams: settings.quickCheckSeedNetQtyGrams,
+      seedCarryRate: settings.quickCheckSeedCarryRate,
+      seedSaleRate: settings.quickCheckSeedSaleRate,
+      seedPurchasesTotal: settings.quickCheckSeedPurchasesTotal,
+      seedSalesTotal: settings.quickCheckSeedSalesTotal,
+    );
 
     final statusLabel =
         result.isExcess ? 'Excess' : (result.isDemand ? 'Demand' : 'Balanced');

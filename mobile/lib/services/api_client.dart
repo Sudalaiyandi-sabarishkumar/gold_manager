@@ -112,6 +112,20 @@ class ApiClient {
     _handle(res);
   }
 
+  /// Deletes fully-paid transactions older than this month (stopping early
+  /// at the oldest pending one, if any). Returns the raw response map:
+  /// `{ok, deletedCount, remainingCount, boundaryDate}` on a real shrink, or
+  /// `{ok, deletedCount: 0, remainingCount, message}` when there was
+  /// nothing eligible to shrink.
+  Future<Map<String, dynamic>> shrinkTransactions() async {
+    final res = await _guard(_http.post(
+      _uri('/api/transactions/shrink'),
+      headers: _headers,
+      body: jsonEncode({'confirm': true}),
+    ));
+    return _handle(res) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> addPayment(
     String transactionId, {
     required double amount,

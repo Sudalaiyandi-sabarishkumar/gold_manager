@@ -4,7 +4,7 @@ const Expense = require('../models/Expense');
 const Transaction = require('../models/Transaction');
 const Loan = require('../models/Loan');
 const Settings = require('../models/Settings');
-const { computeBalances } = require('../services/balances');
+const { computeBalances, balanceSeedFromSettings } = require('../services/balances');
 const { round2 } = require('../services/payments');
 const ah = require('../lib/asyncHandler');
 
@@ -23,6 +23,7 @@ async function cashInHand() {
   return computeBalances({
     openingCash: settings.openingCash,
     openingGoldGrams: settings.openingGoldGrams,
+    ...balanceSeedFromSettings(settings),
     transactions,
     loans,
     expenses,

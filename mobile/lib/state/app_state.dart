@@ -168,6 +168,23 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Deletes fully-paid transactions older than this month, stopping early
+  /// at the oldest pending one. Returns the raw response map so the UI can
+  /// show how many were removed/kept.
+  Future<Map<String, dynamic>> shrinkTransactions() async {
+    loading = true;
+    notifyListeners();
+    try {
+      final res = await _api.shrinkTransactions();
+      await refresh();
+      return res;
+    } catch (_) {
+      loading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Records an instalment against a transaction. Throws [ApiException]
   /// (422 when the amount exceeds what is outstanding).
   Future<void> addPayment(

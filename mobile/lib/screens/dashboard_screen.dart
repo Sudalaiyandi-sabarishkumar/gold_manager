@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../utils/format.dart';
@@ -22,6 +23,31 @@ class DashboardScreen extends StatelessWidget {
   Future<void> _open(BuildContext context, Widget screen) {
     return Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
+
+  Future<void> _shrink(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ShrinkConfirmDialog(),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await context.read<AppState>().shrinkTransactions();
+      final deleted = (res['deletedCount'] as num?)?.toInt() ?? 0;
+      final remaining = (res['remainingCount'] as num?)?.toInt() ?? 0;
+      final msg = deleted == 0
+          ? (res['message'] as String? ?? 'Nothing to shrink yet.')
+          : 'Removed $deleted, kept $remaining.';
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not shrink transactions')),
+      );
+    }
   }
 
   @override
@@ -58,11 +84,14 @@ class DashboardScreen extends StatelessWidget {
             onSelected: (v) {
               if (v == 'expenses') _open(context, const ExpensesScreen());
               if (v == 'settings') _open(context, const SettingsScreen());
+              if (v == 'shrink') _shrink(context);
               if (v == 'logout') context.read<AppState>().logout();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'expenses', child: Text('Miscellaneous')),
               PopupMenuItem(value: 'settings', child: Text('Opening balances')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'shrink', child: Text('Shrink')),
               PopupMenuItem(value: 'logout', child: Text('Log out')),
             ],
           ),
@@ -320,6 +349,70 @@ class _LoansOutRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ShrinkConfirmDialog extends StatefulWidget {
+  const _ShrinkConfirmDialog();
+
+  @override
+  State<_ShrinkConfirmDialog> createState() => _ShrinkConfirmDialogState();
+}
+
+class _ShrinkConfirmDialogState extends State<_ShrinkConfirmDialog> {
+  final _controller = TextEditingController();
+  bool _matches = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String v) {
+    final ok = v.trim().toLowerCase() == 'confirm';
+    if (ok != _matches) setState(() => _matches = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: GoldColors.surface,
+      title: const Text('Shrink transaction history?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This permanently deletes every fully-paid purchase/sale entry '
+              'up through today. Pending (unpaid or partially paid) entries '
+              'are never deleted — the oldest one stops the deletion there. '
+              'In hand, receivable, payable and Quick Check stay exactly the '
+              'same — only the entry list gets shorter.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              onChanged: _onChanged,
+              decoration:
+                  const InputDecoration(labelText: 'Type CONFIRM to proceed'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _matches ? () => Navigator.pop(context, true) : null,
+          child: const Text('Shrink', style: TextStyle(color: GoldColors.loss)),
+        ),
+      ],
     );
   }
 }

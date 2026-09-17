@@ -3,9 +3,10 @@ const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const Loan = require('../models/Loan');
 const Settings = require('../models/Settings');
-const { replayStock } = require('../services/stock');
+const { replayStock, stockSeedFromSettings, sortChronologically } = require('../services/stock');
 const { summarizePayments, round2 } = require('../services/payments');
-const { computeBalances } = require('../services/balances');
+const { computeBalances, balanceSeedFromSettings, paidOn } = require('../services/balances');
+const { replayQuickCheck, quickCheckSeedFromSettings } = require('../services/quickCheck');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
@@ -67,8 +68,8 @@ async function canonicalParty(name) {
 router.get(
   '/',
   ah(async (req, res) => {
-    const all = await Transaction.find().lean();
-    const { perTxn } = replayStock(all);
+    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
 
     let list = all.slice().sort(byDateDesc);
 
@@ -108,8 +109,8 @@ router.get(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const all = await Transaction.find().lean();
-    const { perTxn } = replayStock(all);
+    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     const t = all.find((x) => String(x._id) === req.params.id);
     if (!t) return res.status(404).json({ error: 'Not found' });
     res.json(serialize(t, perTxn));
@@ -135,15 +136,23 @@ router.post(
     const when = date ? new Date(date) : new Date();
     if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
 
+    const settings = await Settings.current();
+
+    if (settings.shrunkThroughDate && when < settings.shrunkThroughDate) {
+      return res.status(422).json({
+        error: `Cannot backdate before ${settings.shrunkThroughDate
+          .toISOString()
+          .slice(0, 10)} — that history has been shrunk.`,
+        shrunkThroughDate: settings.shrunkThroughDate,
+      });
+    }
+
     if (type === 'sale') {
-      const [settings, all, loans] = await Promise.all([
-        Settings.current(),
-        Transaction.find().lean(),
-        Loan.find().lean(),
-      ]);
+      const [all, loans] = await Promise.all([Transaction.find().lean(), Loan.find().lean()]);
       const available = computeBalances({
         openingCash: settings.openingCash,
         openingGoldGrams: settings.openingGoldGrams,
+        ...balanceSeedFromSettings(settings),
         transactions: all,
         loans,
       }).goldInStockGrams;
@@ -175,7 +184,7 @@ router.post(
     });
 
     const all = await Transaction.find().lean();
-    const { perTxn } = replayStock(all);
+    const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.status(201).json(serialize(doc.toObject(), perTxn));
   })
 );
@@ -211,8 +220,8 @@ router.post(
     });
     await doc.save();
 
-    const all = await Transaction.find().lean();
-    const { perTxn } = replayStock(all);
+    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.status(201).json(serialize(doc.toObject(), perTxn));
   })
 );
@@ -234,8 +243,8 @@ router.delete(
     doc.payments.pull(req.params.paymentId);
     await doc.save();
 
-    const all = await Transaction.find().lean();
-    const { perTxn } = replayStock(all);
+    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.json(serialize(doc.toObject(), perTxn));
   })
 );
@@ -250,6 +259,112 @@ router.delete(
     const deleted = await Transaction.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
+  })
+);
+
+// POST /api/transactions/shrink  { confirm: true }
+//
+// Deletes every fully-paid transaction dated up through today, stopping
+// early at the oldest still-pending (unpaid or partial) transaction if
+// there is one — a pending entry is never deleted, no matter how old, and
+// nothing dated after it gets deleted either (even later fully-paid
+// entries), to keep this a safe, contiguous prefix. Cash, gold, avg cost,
+// realized profit, receivable/payable and Quick Check are all unaffected
+// by design — see services/stock.js, services/balances.js,
+// services/quickCheck.js and Settings' seed fields for how.
+router.post(
+  '/shrink',
+  ah(async (req, res) => {
+    if (!req.body || req.body.confirm !== true) {
+      return res.status(400).json({ error: 'confirm must be true' });
+    }
+
+    const settings = await Settings.current();
+    const all = await Transaction.find().lean();
+    const ordered = sortChronologically(all);
+
+    const now = new Date();
+
+    // Walk oldest-first; stop at the first transaction that is either
+    // still pending, or dated after "now" (a backdate-guard edge case) —
+    // everything before that point is a safe, contiguous prefix to fold away.
+    let boundaryIndex = ordered.length;
+    for (let i = 0; i < ordered.length; i++) {
+      const t = ordered[i];
+      const isPending = summarizePayments(t).paymentStatus !== 'paid';
+      const isFuture = new Date(t.date) > now;
+      if (isPending || isFuture) {
+        boundaryIndex = i;
+        break;
+      }
+    }
+
+    const prefix = ordered.slice(0, boundaryIndex);
+    const kept = ordered.slice(boundaryIndex);
+
+    if (prefix.length === 0) {
+      return res.json({
+        ok: true,
+        deletedCount: 0,
+        remainingCount: ordered.length,
+        message:
+          ordered.length === 0
+            ? 'No transactions to shrink.'
+            : 'The oldest transaction is still pending — nothing to shrink yet.',
+      });
+    }
+
+    const stockAfterPrefix = replayStock(prefix, stockSeedFromSettings(settings));
+    const qcAfterPrefix = replayQuickCheck(prefix, quickCheckSeedFromSettings(settings));
+
+    let cashDelta = 0;
+    for (const t of prefix) {
+      const paid = paidOn(t);
+      cashDelta += t.type === 'sale' ? paid : -paid;
+    }
+
+    // Persist the new seeds FIRST. If the delete below fails partway, the
+    // failure is loud (remaining prefix rows would be double-counted on the
+    // next read) rather than silent — recoverable by deleting exactly
+    // `remainingPrefixIds` directly, without calling shrink again.
+    settings.stockSeedWeightGrams = stockAfterPrefix.weightGrams;
+    settings.stockSeedAvgCostPerGram = stockAfterPrefix.avgCostPerGram;
+    settings.stockSeedRealizedProfit = stockAfterPrefix.realizedProfit;
+    settings.quickCheckSeedNetQtyGrams = qcAfterPrefix.netQtyGrams;
+    settings.quickCheckSeedCarryRate = qcAfterPrefix.carryRate;
+    settings.quickCheckSeedSaleRate = qcAfterPrefix.saleRate;
+    settings.quickCheckSeedPurchasesTotal = qcAfterPrefix.purchasesTotal;
+    settings.quickCheckSeedSalesTotal = qcAfterPrefix.salesTotal;
+    settings.cashSeed = round2((settings.cashSeed || 0) + cashDelta);
+    const newBoundaryDate = prefix[prefix.length - 1].date;
+    if (
+      !settings.shrunkThroughDate ||
+      new Date(newBoundaryDate) > new Date(settings.shrunkThroughDate)
+    ) {
+      settings.shrunkThroughDate = newBoundaryDate;
+    }
+    await settings.save();
+
+    const prefixIds = prefix.map((t) => t._id);
+    const del = await Transaction.deleteMany({ _id: { $in: prefixIds } });
+
+    if (del.deletedCount !== prefixIds.length) {
+      return res.status(500).json({
+        error:
+          'Shrink partially failed: settings were updated but not all transactions were removed. ' +
+          'Do not call shrink again — delete the listed ids directly instead.',
+        expectedDeleted: prefixIds.length,
+        actuallyDeleted: del.deletedCount,
+        remainingPrefixIds: prefixIds.map(String),
+      });
+    }
+
+    res.json({
+      ok: true,
+      deletedCount: prefixIds.length,
+      remainingCount: kept.length,
+      boundaryDate: kept.length ? kept[0].date : null,
+    });
   })
 );
 

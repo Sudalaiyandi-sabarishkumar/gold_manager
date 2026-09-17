@@ -198,6 +198,86 @@ async function main() {
   check('cash in hand restored', approx((await GET('/api/stock', H)).body.cashInHand, cashBefore, 1));
   check('expenses list empty again', (await GET('/api/expenses', H)).body.length === 0);
 
+  // --- shrink: every fully-paid entry up through today gets folded into
+  //     the opening seeds; it stops early at the oldest pending entry, so
+  //     nothing pending (or dated after a pending entry) is ever touched ---
+  const beforeShrinkCount = (await GET('/api/transactions', H)).body.length;
+  const now = new Date();
+  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 5);
+  const day = (n) =>
+    new Date(twoMonthsAgo.getFullYear(), twoMonthsAgo.getMonth(), twoMonthsAgo.getDate() + n)
+      .toISOString();
+
+  await POST('/api/transactions', H, {
+    type: 'purchase', date: day(0), weightGrams: 10, ratePerGram: 6000,
+  });
+  await POST('/api/transactions', H, {
+    type: 'sale', date: day(1), weightGrams: 5, ratePerGram: 6100,
+  });
+  const pendingRes = await POST('/api/transactions', H, {
+    type: 'sale', date: day(2), weightGrams: 3, ratePerGram: 6200, amountPaid: 1000,
+  });
+  await POST('/api/transactions', H, {
+    type: 'purchase', date: day(3), weightGrams: 2, ratePerGram: 6050,
+  });
+
+  const afterSeedStock = (await GET('/api/stock', H)).body;
+  const afterSeedOutstanding = await GET('/api/outstanding', H);
+
+  r = await POST('/api/transactions/shrink', H, {});
+  check('shrink without confirm:true -> 400', r.status === 400);
+
+  r = await POST('/api/transactions/shrink', H, { confirm: true });
+  check('shrink -> deletes exactly the 2 entries before the oldest pending one',
+    r.status === 200 && r.body.ok === true && r.body.deletedCount === 2);
+
+  const afterShrinkStock = (await GET('/api/stock', H)).body;
+  check('stock (cash/gold/avg cost/realized profit) unchanged by shrink',
+    approx(afterShrinkStock.cashInHand, afterSeedStock.cashInHand, 0.01) &&
+    approx(afterShrinkStock.weightGrams, afterSeedStock.weightGrams, 0.0001) &&
+    approx(afterShrinkStock.avgCostPerGram, afterSeedStock.avgCostPerGram, 0.01) &&
+    approx(afterShrinkStock.realizedProfit, afterSeedStock.realizedProfit, 0.01));
+
+  const afterShrinkOutstanding = await GET('/api/outstanding', H);
+  check('receivable/payable unchanged by shrink',
+    JSON.stringify(afterShrinkOutstanding.body) === JSON.stringify(afterSeedOutstanding.body));
+
+  check('transaction count dropped by exactly 2',
+    (await GET('/api/transactions', H)).body.length === beforeShrinkCount + 4 - 2);
+
+  r = await POST('/api/transactions', H, {
+    type: 'purchase', date: day(0), weightGrams: 1, ratePerGram: 6000,
+  });
+  check('backdating before the shrink boundary -> 422', r.status === 422);
+
+  r = await POST('/api/transactions/shrink', H, { confirm: true });
+  check('second immediate shrink is a safe no-op',
+    r.status === 200 && r.body.deletedCount === 0);
+
+  // Once every pending entry anywhere is cleared, a fully-paid entry dated
+  // TODAY is also eligible — shrink is no longer restricted to "before
+  // this month".
+  await DEL(`/api/transactions/${pendingRes.body.id}`, H);
+  for (const t of (await GET('/api/transactions', H)).body) {
+    if (t.amountDue > 0.005) {
+      await POST(`/api/transactions/${t.id}/payments`, H, { amount: t.amountDue });
+    }
+  }
+
+  await POST('/api/transactions', H, {
+    type: 'purchase', date: now.toISOString(), weightGrams: 1, ratePerGram: 6300,
+  });
+  const countBeforeFullSweep = (await GET('/api/transactions', H)).body.length;
+  const beforeFullSweepStock = (await GET('/api/stock', H)).body;
+
+  r = await POST('/api/transactions/shrink', H, { confirm: true });
+  check('with no pending entries left anywhere, shrink sweeps up everything including today',
+    r.status === 200 && r.body.deletedCount === countBeforeFullSweep);
+  check('transactions list is now empty', (await GET('/api/transactions', H)).body.length === 0);
+  check("stock still unchanged after sweeping up today's entry too",
+    approx((await GET('/api/stock', H)).body.cashInHand, beforeFullSweepStock.cashInHand, 0.01) &&
+    approx((await GET('/api/stock', H)).body.weightGrams, beforeFullSweepStock.weightGrams, 0.0001));
+
   server.close();
   await mongoose.disconnect();
   await mem.stop();

@@ -27,18 +27,22 @@ function sortChronologically(txns) {
 
 /**
  * @param {Array} txns  plain transaction objects ({ type, date, weightGrams, ratePerGram, createdAt, _id })
+ * @param {{weightGrams?:number, avgCostPerGram?:number, realizedProfit?:number}} [seed]
+ *   Starting point for the fold — used to resume replay after a "shrink"
+ *   has folded older transactions into these three numbers. Omit for the
+ *   normal from-scratch replay (defaults to 0/0/0, unchanged behavior).
  * @returns {{
  *   weightGrams:number, avgCostPerGram:number, stockValue:number,
  *   realizedProfit:number, lastRatePerGram:number,
  *   perTxn: Map<string,{balanceAfter:number, avgCostAfter:number, profit:(number|null)}>
  * }}
  */
-function replayStock(txns) {
+function replayStock(txns, seed = {}) {
   const ordered = sortChronologically(txns);
 
-  let weightGrams = 0;
-  let avgCostPerGram = 0;
-  let realizedProfit = 0;
+  let weightGrams = seed.weightGrams || 0;
+  let avgCostPerGram = seed.avgCostPerGram || 0;
+  let realizedProfit = seed.realizedProfit || 0;
   const perTxn = new Map();
 
   for (const t of ordered) {
@@ -80,4 +84,19 @@ function availableWeight(txns) {
   return replayStock(txns).weightGrams;
 }
 
-module.exports = { replayStock, availableWeight, round2, round4 };
+function stockSeedFromSettings(s) {
+  return {
+    weightGrams: s.stockSeedWeightGrams || 0,
+    avgCostPerGram: s.stockSeedAvgCostPerGram || 0,
+    realizedProfit: s.stockSeedRealizedProfit || 0,
+  };
+}
+
+module.exports = {
+  replayStock,
+  availableWeight,
+  round2,
+  round4,
+  sortChronologically,
+  stockSeedFromSettings,
+};

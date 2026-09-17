@@ -17,14 +17,22 @@ const paidOn = (txn) => (txn.payments || []).reduce((s, p) => s + (p.amount || 0
 function computeBalances({
   openingCash,
   openingGoldGrams,
+  cashSeed = 0,
+  stockSeedWeightGrams = 0,
+  stockSeedAvgCostPerGram = 0,
+  stockSeedRealizedProfit = 0,
   transactions,
   loans,
   expenses = [],
   asOf = new Date(),
 }) {
-  const trade = replayStock(transactions);
+  const trade = replayStock(transactions, {
+    weightGrams: stockSeedWeightGrams,
+    avgCostPerGram: stockSeedAvgCostPerGram,
+    realizedProfit: stockSeedRealizedProfit,
+  });
 
-  let cash = openingCash;
+  let cash = openingCash + cashSeed;
   let gold = openingGoldGrams + trade.weightGrams;
 
   for (const t of transactions) {
@@ -96,4 +104,13 @@ function computeBalances({
   };
 }
 
-module.exports = { computeBalances };
+function balanceSeedFromSettings(s) {
+  return {
+    cashSeed: s.cashSeed || 0,
+    stockSeedWeightGrams: s.stockSeedWeightGrams || 0,
+    stockSeedAvgCostPerGram: s.stockSeedAvgCostPerGram || 0,
+    stockSeedRealizedProfit: s.stockSeedRealizedProfit || 0,
+  };
+}
+
+module.exports = { computeBalances, balanceSeedFromSettings, paidOn };

@@ -3,9 +3,9 @@ const Transaction = require('../models/Transaction');
 const Loan = require('../models/Loan');
 const Expense = require('../models/Expense');
 const Settings = require('../models/Settings');
-const { replayStock } = require('../services/stock');
+const { replayStock, stockSeedFromSettings } = require('../services/stock');
 const { outstanding } = require('../services/payments');
-const { computeBalances } = require('../services/balances');
+const { computeBalances, balanceSeedFromSettings } = require('../services/balances');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
@@ -21,11 +21,12 @@ router.get(
       Expense.find().lean(),
     ]);
 
-    const trade = replayStock(txns);
+    const trade = replayStock(txns, stockSeedFromSettings(settings));
     const o = outstanding(txns);
     const b = computeBalances({
       openingCash: settings.openingCash,
       openingGoldGrams: settings.openingGoldGrams,
+      ...balanceSeedFromSettings(settings),
       transactions: txns,
       loans,
       expenses,
