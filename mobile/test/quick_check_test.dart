@@ -85,21 +85,19 @@ void main() {
     expect(result.carryRate, 15030); // latest purchase's own rate, not 15015
   });
 
-  test('blocks of 20 reset: only the current block is used', () {
+  test('replays the full history regardless of how many entries there are',
+      () {
     final txns = <GoldTransaction>[];
     var day = DateTime(2026, 1, 1);
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < 25; i++) {
       txns.add(_txn('purchase', day, 10, 100));
       day = day.add(const Duration(days: 1));
     }
-    // 21st transaction starts a brand-new block on its own.
     txns.add(_txn('sale', day, 5, 200));
 
     final result = QuickCheckResult.compute(txns);
-    expect(result.blockTxnCount, 1);
-    expect(result.blockTransactions.single.ratePerGram, 200);
-    expect(result.netQtyGrams, -5);
-    // A lone sale never sets a rate — this is a demand with no purchase basis.
-    expect(result.carryRate, 0);
+    expect(result.txnCount, 26);
+    expect(result.netQtyGrams, 245); // 25*10 - 5
+    expect(result.carryRate, 100); // last blend point stays at the purchase rate
   });
 }

@@ -8,10 +8,8 @@ import '../utils/format.dart';
 import '../widgets/transaction_tile.dart';
 
 const int kQuickCheckBaseLimitGrams = 500;
-const int kQuickCheckBlockSize = 20;
 
-/// Result of replaying the current (most recent, <=20-entry) block of
-/// purchase/sale transactions.
+/// Result of replaying every purchase/sale transaction, oldest first.
 ///
 /// `netQtyGrams` is a running signed weight (+ve = bought more than sold so
 /// far = excess on hand; -ve = sold more than bought = demand/short).
@@ -19,13 +17,13 @@ const int kQuickCheckBlockSize = 20;
 /// from purchases**; a sale changes `netQtyGrams` but never touches
 /// `carryRate`, even when the sale pushes the position into demand (it just
 /// keeps showing the last purchase-based rate). It only reads as "no rate"
-/// (0) when no purchase has happened yet this cycle. While extending an
-/// existing excess, purchases blend into a weighted-average cost; while
-/// covering a demand (fully or partially), a purchase instead resets
-/// `carryRate` straight to its own price, since it's the latest purchase.
+/// (0) when no purchase has happened yet. While extending an existing
+/// excess, purchases blend into a weighted-average cost; while covering a
+/// demand (fully or partially), a purchase instead resets `carryRate`
+/// straight to its own price, since it's the latest purchase.
 class QuickCheckResult {
   const QuickCheckResult({
-    required this.blockTransactions,
+    required this.transactions,
     required this.netQtyGrams,
     required this.carryRate,
     required this.purchasesTotal,
@@ -33,14 +31,14 @@ class QuickCheckResult {
     required this.profit,
   });
 
-  final List<GoldTransaction> blockTransactions;
+  final List<GoldTransaction> transactions;
   final double netQtyGrams;
   final double carryRate;
   final double purchasesTotal;
   final double salesTotal;
   final double profit;
 
-  int get blockTxnCount => blockTransactions.length;
+  int get txnCount => transactions.length;
   bool get isExcess => netQtyGrams > 0;
   bool get isDemand => netQtyGrams < 0;
   bool get isBalanced => netQtyGrams == 0;
@@ -49,23 +47,19 @@ class QuickCheckResult {
     final tradeable = all.where((t) => t.isPurchase || t.isSale).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    final blockStart =
-        (tradeable.length ~/ kQuickCheckBlockSize) * kQuickCheckBlockSize;
-    final block = tradeable.sublist(blockStart);
-
     double netQty = 0;
     double carryRate = 0;
     double purchasesTotal = 0;
     double salesTotal = 0;
 
-    for (final t in block) {
+    for (final t in tradeable) {
       final before = netQty;
       if (t.isSale) {
         salesTotal += t.totalAmount;
         netQty = before - t.weightGrams;
         // A sale never touches carryRate, no matter the outcome: it stays at
         // the last purchase-based rate (or 0/unset if no purchase has
-        // happened yet this cycle), even if this sale pushes into demand.
+        // happened yet), even if this sale pushes into demand.
       } else {
         purchasesTotal += t.totalAmount;
         if (before > 0) {
@@ -88,7 +82,7 @@ class QuickCheckResult {
     final profit = salesTotal - purchasesTotal + (netQty * carryRate);
 
     return QuickCheckResult(
-      blockTransactions: block,
+      transactions: tradeable,
       netQtyGrams: netQty,
       carryRate: carryRate,
       purchasesTotal: purchasesTotal,
@@ -112,7 +106,7 @@ class QuickCheckScreen extends StatelessWidget {
         ? GoldColors.gain
         : (result.isDemand ? GoldColors.loss : GoldColors.muted);
     final hasRate = result.carryRate != 0;
-    final blockNewestFirst = result.blockTransactions.reversed.toList();
+    final newestFirst = result.transactions.reversed.toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Quick check')),
@@ -222,7 +216,7 @@ class QuickCheckScreen extends StatelessWidget {
                               : GoldColors.muted)),
                 ),
                 const SizedBox(height: 20),
-                const Text('PROFIT THIS CYCLE',
+                const Text('PROFIT',
                     style: TextStyle(
                         fontSize: 11,
                         letterSpacing: 1.2,
@@ -241,17 +235,17 @@ class QuickCheckScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '${result.blockTxnCount} of $kQuickCheckBlockSize purchase/sale entries this cycle',
+                  '${result.txnCount} purchase/sale entries',
                   style: const TextStyle(
                       fontSize: 12, color: GoldColors.faint),
                 ),
               ],
             ),
           ),
-          if (blockNewestFirst.isNotEmpty) ...[
+          if (newestFirst.isNotEmpty) ...[
             const SizedBox(height: 24),
             const Text(
-              'ENTRIES THIS CYCLE',
+              'ENTRIES',
               style: TextStyle(
                   fontSize: 11,
                   letterSpacing: 1.2,
@@ -259,11 +253,10 @@ class QuickCheckScreen extends StatelessWidget {
                   fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            ...blockNewestFirst.map(
+            ...newestFirst.map(
               (t) => TransactionTile(
                 txn: t,
                 showBalance: false,
-            
               ),
             ),
           ],
