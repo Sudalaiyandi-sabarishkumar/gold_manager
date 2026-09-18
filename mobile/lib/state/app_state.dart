@@ -7,6 +7,7 @@ import '../models/stock.dart';
 import '../models/transaction.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../utils/format.dart';
 
 enum AuthStatus { unknown, signedOut, signedIn }
 
@@ -138,7 +139,7 @@ class AppState extends ChangeNotifier {
     try {
       final res = await _api.createTransaction({
         'type': type,
-        'date': date.toIso8601String(),
+        'date': istToUtc(date).toIso8601String(),
         'party': party,
         'weightGrams': weightGrams,
         'ratePerGram': ratePerGram,
@@ -341,7 +342,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       await _api.createExpense({
-        'date': date.toIso8601String(),
+        'date': istToUtc(date).toIso8601String(),
         'amount': amount,
         'note': note,
       });

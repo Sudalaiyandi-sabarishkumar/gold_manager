@@ -309,7 +309,7 @@ class _RepayDialogState extends State<_RepayDialog> {
         FilledButton(
           onPressed: () {
             Navigator.pop(context, <String, dynamic>{
-              'date': _date.toIso8601String(),
+              'date': istToUtc(_date).toIso8601String(),
               'principalReturned': double.tryParse(_principal.text.trim()) ?? 0,
               'interestPaid': double.tryParse(_interest.text.trim()) ?? 0,
             });

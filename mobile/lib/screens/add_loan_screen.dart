@@ -91,7 +91,7 @@ class _AddLoanScreenState extends State<AddLoanScreen> {
       await appState.createLoan({
         'kind': _kind,
         'party': appState.canonicalParty(_party.text),
-        'date': _date.toIso8601String(),
+        'date': istToUtc(_date).toIso8601String(),
         'principal': _p,
         'interestRate': _r,
         'interestRefAmount': _refv,

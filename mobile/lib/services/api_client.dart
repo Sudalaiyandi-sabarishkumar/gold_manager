@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
+import '../utils/format.dart';
 
 class ApiException implements Exception {
   ApiException(this.statusCode, this.message);
@@ -137,7 +138,7 @@ class ApiClient {
       headers: _headers,
       body: jsonEncode({
         'amount': amount,
-        if (date != null) 'date': date.toIso8601String(),
+        if (date != null) 'date': istToUtc(date).toIso8601String(),
         'note': note,
       }),
     ));

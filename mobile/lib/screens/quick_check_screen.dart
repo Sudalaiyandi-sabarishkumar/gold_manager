@@ -28,16 +28,20 @@ const int kQuickCheckBaseLimitGrams = 500;
 /// sale's own price whenever a sale starts a fresh demand or (fully/
 /// partially) covers an excess. Purchases never touch it.
 ///
-/// `profit` projects closing the *current* remaining position at whichever
-/// rate actually applies to it — `carryRate` while in excess (you'd sell
-/// it), `saleRate` while in demand (you'd buy it back relative to what it
-/// was already sold for). This is the same rate `safePrice` shows.
+/// `safePrice` is the breakeven price for the current position — `carryRate`
+/// rounded UP while in excess (so "sell above" stays a genuinely safe
+/// threshold), or `saleRate` rounded DOWN while in demand (so "buy below"
+/// stays genuinely safe), 0 when balanced or when there's nothing to base
+/// it on yet. `profit` uses this exact rounded value too, not the raw
+/// unrounded `carryRate`/`saleRate` — so the profit figure always matches
+/// what you'd actually get by acting on the displayed safe price.
 class QuickCheckResult {
   const QuickCheckResult({
     required this.transactions,
     required this.netQtyGrams,
     required this.carryRate,
     required this.saleRate,
+    required this.safePrice,
     required this.purchasesTotal,
     required this.salesTotal,
     required this.profit,
@@ -47,6 +51,7 @@ class QuickCheckResult {
   final double netQtyGrams;
   final double carryRate;
   final double saleRate;
+  final double safePrice;
   final double purchasesTotal;
   final double salesTotal;
   final double profit;
@@ -55,11 +60,6 @@ class QuickCheckResult {
   bool get isExcess => netQtyGrams > 0;
   bool get isDemand => netQtyGrams < 0;
   bool get isBalanced => netQtyGrams == 0;
-
-  /// The breakeven price for the current position: sell above this while in
-  /// excess, or buy below this while in demand, to come out ahead. 0 when
-  /// there's nothing to base it on yet (e.g. demand with no sale recorded).
-  double get safePrice => isExcess ? carryRate : (isDemand ? saleRate : 0);
 
   static QuickCheckResult compute(
     List<GoldTransaction> all, {
@@ -116,21 +116,29 @@ class QuickCheckResult {
       }
     }
 
-    // Project closing the remaining position at whichever rate actually
-    // applies to it: the purchase-based cost basis while in excess (you'd
-    // sell it), or the sale-based rate while in demand (you'd buy it back
-    // relative to what you already received for it) — the same rate
-    // `safePrice` shows. Using carryRate here even in demand would price
-    // covering a short against an unrelated purchase, not against what it
-    // was actually sold for.
-    final applicableRate = netQty > 0 ? carryRate : (netQty < 0 ? saleRate : 0.0);
-    final profit = salesTotal - purchasesTotal + (netQty * applicableRate);
+    // The rate actually applied to close the remaining position: the
+    // purchase-based cost basis while in excess (you'd sell it), or the
+    // sale-based rate while in demand (you'd buy it back relative to what
+    // you already received for it). Rounded UP for excess and DOWN for
+    // demand so it stays a genuinely safe threshold — and profit is
+    // computed from this SAME rounded value, not the raw point value,
+    // so the two figures always agree with each other.
+    final double safePrice;
+    if (netQty > 0) {
+      safePrice = carryRate.ceilToDouble();
+    } else if (netQty < 0) {
+      safePrice = saleRate.floorToDouble();
+    } else {
+      safePrice = 0.0;
+    }
+    final profit = salesTotal - purchasesTotal + (netQty * safePrice);
 
     return QuickCheckResult(
       transactions: tradeable,
       netQtyGrams: netQty,
       carryRate: carryRate,
       saleRate: saleRate,
+      safePrice: safePrice,
       purchasesTotal: purchasesTotal,
       salesTotal: salesTotal,
       profit: profit,
@@ -138,8 +146,27 @@ class QuickCheckResult {
   }
 }
 
-class QuickCheckScreen extends StatelessWidget {
+class QuickCheckScreen extends StatefulWidget {
   const QuickCheckScreen({super.key});
+
+  @override
+  State<QuickCheckScreen> createState() => _QuickCheckScreenState();
+}
+
+class _QuickCheckScreenState extends State<QuickCheckScreen> {
+  final _manualRate = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _manualRate.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _manualRate.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,9 +186,16 @@ class QuickCheckScreen extends StatelessWidget {
     final statusColor = result.isExcess
         ? GoldColors.gain
         : (result.isDemand ? GoldColors.loss : GoldColors.muted);
-    final hasRate = result.carryRate != 0;
     final hasSafePrice = result.safePrice != 0;
     final newestFirst = result.transactions.reversed.toList();
+
+    final manualRate = double.tryParse(_manualRate.text.trim());
+    final usingManualRate = manualRate != null && manualRate > 0;
+    final displayedProfit = usingManualRate
+        ? result.salesTotal -
+            result.purchasesTotal +
+            (result.netQtyGrams * manualRate)
+        : result.profit;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Quick check')),
@@ -263,9 +297,11 @@ class QuickCheckScreen extends StatelessWidget {
                   // Inverted vs. the gold quantity: gold excess means cash
                   // was spent to buy it (a cash demand), and gold demand
                   // means more cash came in from selling than was spent (a
-                  // cash excess).
-                  hasRate
-                      ? signedInr(-(result.carryRate * result.netQtyGrams))
+                  // cash excess). Uses safePrice so excess is valued at
+                  // carryRate and demand at saleRate, matching "SAFE ...
+                  // BELOW/ABOVE" and "PROFIT" above.
+                  hasSafePrice
+                      ? signedInr(-(result.safePrice * result.netQtyGrams))
                       : '—',
                   style: TextStyle(
                       fontSize: 18,
@@ -277,21 +313,58 @@ class QuickCheckScreen extends StatelessWidget {
                               : GoldColors.muted)),
                 ),
                 const SizedBox(height: 20),
-                const Text('PROFIT',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        color: GoldColors.muted,
-                        fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    const Text('PROFIT',
+                        style: TextStyle(
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                            color: GoldColors.muted,
+                            fontWeight: FontWeight.w600)),
+                    if (usingManualRate) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                              color: GoldColors.gold.withValues(alpha: 0.5)),
+                        ),
+                        child: const Text(
+                          'MANUAL',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: GoldColors.gold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  signedInr(result.profit),
+                  signedInr(displayedProfit),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: result.profit >= 0
+                    color: displayedProfit >= 0
                         ? GoldColors.gain
                         : GoldColors.loss,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _manualRate,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    labelText: 'Simulate at rate/g (optional)',
+                    hintText: 'Leave blank to use the safe price',
                   ),
                 ),
                 const SizedBox(height: 16),
