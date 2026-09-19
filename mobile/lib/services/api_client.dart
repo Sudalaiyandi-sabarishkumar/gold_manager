@@ -127,6 +127,24 @@ class ApiClient {
     return _handle(res) as Map<String, dynamic>;
   }
 
+  /// Wipes ALL transactions (pending included), resets opening balance to
+  /// ₹75,00,000 / 100g and every carry-forward seed to zero, then — if
+  /// Quick Check showed an excess or demand right before the wipe —
+  /// re-creates it as a single fully-paid transaction dated today.
+  /// Returns `{ok, previousPosition: {netQtyGrams, status, safePrice},
+  /// createdTransaction}`.
+Future<Map<String, dynamic>> refreshLedger({double? rate}) async {
+  final res = await _guard(_http.post(
+    _uri('/api/transactions/refresh'),
+    headers: _headers,
+    body: jsonEncode({
+      'confirm': true,
+      if (rate != null) 'rate': rate,
+    }),
+  ));
+  return _handle(res) as Map<String, dynamic>;
+}
+
   Future<Map<String, dynamic>> addPayment(
     String transactionId, {
     required double amount,

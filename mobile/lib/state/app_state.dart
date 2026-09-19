@@ -186,6 +186,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Wipes the entire ledger and resets opening balance/seeds to a clean
+  /// slate, carrying forward only the pre-wipe excess/demand (if any) as a
+  /// single fully-paid transaction dated today. Returns the raw response
+  /// map so the UI can show what was carried forward.
+  Future<Map<String, dynamic>> refreshLedger({double? rate}) async {
+  loading = true;
+  notifyListeners();
+  try {
+    final res = await _api.refreshLedger(rate: rate);
+    await refresh();
+    return res;
+  } catch (_) {
+    loading = false;
+    notifyListeners();
+    rethrow;
+  }
+}
+
   /// Records an instalment against a transaction. Throws [ApiException]
   /// (422 when the amount exceeds what is outstanding).
   Future<void> addPayment(
