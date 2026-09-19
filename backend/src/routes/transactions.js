@@ -6,7 +6,11 @@ const Settings = require('../models/Settings');
 const { replayStock, stockSeedFromSettings, sortChronologically } = require('../services/stock');
 const { summarizePayments, round2 } = require('../services/payments');
 const { computeBalances, balanceSeedFromSettings, paidOn } = require('../services/balances');
-const { replayQuickCheck, quickCheckSeedFromSettings } = require('../services/quickCheck');
+const {
+  replayQuickCheck,
+  quickCheckSeedFromSettings,
+  safePriceFor,
+} = require('../services/quickCheck');
 const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
@@ -367,5 +371,100 @@ router.post(
     });
   })
 );
+
+// POST /api/transactions/refresh  { confirm: true }
+//
+// A harder reset than shrink: wipes the ENTIRE transaction history (not just
+// a safe prefix — pending entries included), resets opening balance to a
+// fixed 7,500,000 cash / 100g gold, and zeroes every carry-forward seed
+// (stock, cash, Quick Check, shrunk-through date). Unlike shrink, In Hand
+// and Quick Check are NOT preserved as-is — they reset to the fixed opening
+// balance, except that whatever excess/demand Quick Check showed *right
+// before* the wipe is re-created as a single synthetic transaction dated
+// today, fully paid, so that one number survives the reset:
+//   - Excess (net position > 0): a 'sale' of the excess weight, at the
+//     "safe to sell above" price, party "Excess".
+//   - Demand (net position < 0): a 'purchase' of the demand weight, at the
+//     "safe to buy below" price, party "Demand".
+//   - Balanced (net position 0): nothing is created.
+router.post(
+  '/refresh',
+  ah(async (req, res) => {
+    if (!req.body || req.body.confirm !== true) {
+      return res.status(400).json({ error: 'confirm must be true' });
+    }
+
+    const settings = await Settings.current();
+    const all = await Transaction.find().lean();
+
+    const qc = replayQuickCheck(all, quickCheckSeedFromSettings(settings));
+    const netQty = qc.netQtyGrams;
+    const computedSafePrice = safePriceFor(netQty, qc.carryRate, qc.saleRate);
+    const hasPosition = Math.abs(netQty) > 1e-9;
+
+    // Use the client-supplied rate for the carry-forward transaction when
+    // there IS a position to carry forward; falls back to the computed
+    // safe price if none was supplied. Rejects a non-positive rate outright
+    // rather than silently substituting something else.
+    let rate = computedSafePrice;
+    if (hasPosition && req.body.rate !== undefined && req.body.rate !== null) {
+      const r = Number(req.body.rate);
+      if (!(r > 0)) {
+        return res.status(400).json({ error: 'rate must be greater than 0' });
+      }
+      rate = r;
+    }
+
+    await Transaction.deleteMany({});
+
+    settings.openingCash = 7500000;
+    settings.openingGoldGrams = 500;
+    settings.cashSeed = 0;
+    settings.stockSeedWeightGrams = 0;
+    settings.stockSeedAvgCostPerGram = 0;
+    settings.stockSeedRealizedProfit = 0;
+    settings.quickCheckSeedNetQtyGrams = 0;
+    settings.quickCheckSeedCarryRate = 0;
+    settings.quickCheckSeedSaleRate = 0;
+    settings.quickCheckSeedPurchasesTotal = 0;
+    settings.quickCheckSeedSalesTotal = 0;
+    settings.shrunkThroughDate = undefined;
+    await settings.save();
+
+    let created = null;
+    if (hasPosition) {
+      const today = new Date();
+      const isExcess = netQty > 0;
+      const weight = Math.abs(netQty);
+      const total = round2(weight * rate);
+
+      const doc = await Transaction.create({
+        type: isExcess ? 'purchase' : 'sale',
+        date: today,
+        party: isExcess ? 'Excess' : 'Demand',
+        weightGrams: weight,
+        ratePerGram: rate,
+        totalAmount: total,
+        note: 'Created by refresh',
+        payments: total > 0 ? [{ amount: total, date: today, note: 'Refresh carry-forward' }] : [],
+      });
+
+      const { perTxn } = replayStock([doc.toObject()], stockSeedFromSettings(settings));
+      created = serialize(doc.toObject(), perTxn);
+    }
+
+    res.json({
+      ok: true,
+      previousPosition: {
+        netQtyGrams: netQty,
+        status: netQty > 1e-9 ? 'excess' : netQty < -1e-9 ? 'demand' : 'balanced',
+        safePrice: computedSafePrice,
+        rateUsed: hasPosition ? rate : null,
+      },
+      createdTransaction: created,
+    });
+  })
+);
+
 
 module.exports = router;

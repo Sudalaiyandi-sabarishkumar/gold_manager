@@ -7,6 +7,7 @@ import '../models/stock.dart';
 import '../models/transaction.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../utils/format.dart';
 
 enum AuthStatus { unknown, signedOut, signedIn }
 
@@ -138,7 +139,7 @@ class AppState extends ChangeNotifier {
     try {
       final res = await _api.createTransaction({
         'type': type,
-        'date': date.toIso8601String(),
+        'date': istToUtc(date).toIso8601String(),
         'party': party,
         'weightGrams': weightGrams,
         'ratePerGram': ratePerGram,
@@ -184,6 +185,24 @@ class AppState extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Wipes the entire ledger and resets opening balance/seeds to a clean
+  /// slate, carrying forward only the pre-wipe excess/demand (if any) as a
+  /// single fully-paid transaction dated today. Returns the raw response
+  /// map so the UI can show what was carried forward.
+  Future<Map<String, dynamic>> refreshLedger({double? rate}) async {
+  loading = true;
+  notifyListeners();
+  try {
+    final res = await _api.refreshLedger(rate: rate);
+    await refresh();
+    return res;
+  } catch (_) {
+    loading = false;
+    notifyListeners();
+    rethrow;
+  }
+}
 
   /// Records an instalment against a transaction. Throws [ApiException]
   /// (422 when the amount exceeds what is outstanding).
@@ -341,7 +360,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       await _api.createExpense({
-        'date': date.toIso8601String(),
+        'date': istToUtc(date).toIso8601String(),
         'amount': amount,
         'note': note,
       });

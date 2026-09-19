@@ -61,6 +61,14 @@ function replayQuickCheck(txns, seed = {}) {
   return { netQtyGrams: netQty, carryRate, saleRate, purchasesTotal, salesTotal, profit };
 }
 
+// The same "safe price" the mobile Quick Check screen shows/labels:
+// ceil the excess carry rate, floor the demand sale rate, 0 when balanced.
+function safePriceFor(netQtyGrams, carryRate, saleRate) {
+  if (netQtyGrams > 1e-9) return Math.ceil(carryRate);
+  if (netQtyGrams < -1e-9) return Math.floor(saleRate);
+  return 0;
+}
+
 function quickCheckSeedFromSettings(s) {
   return {
     netQtyGrams: s.quickCheckSeedNetQtyGrams || 0,
@@ -71,4 +79,4 @@ function quickCheckSeedFromSettings(s) {
   };
 }
 
-module.exports = { replayQuickCheck, quickCheckSeedFromSettings };
+module.exports = { replayQuickCheck, quickCheckSeedFromSettings, safePriceFor };

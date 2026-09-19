@@ -5,13 +5,15 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'format.dart';
+
 final DateFormat _fileStamp = DateFormat('yyyy-MM-dd');
 final DateFormat _pdfDate = DateFormat('dd MMM yyyy');
 final NumberFormat _pdfAmount =
     NumberFormat.currency(locale: 'en_IN', symbol: 'Rs. ', decimalDigits: 0);
 
 /// Date formatted for a PDF cell.
-String pdfDate(DateTime d) => _pdfDate.format(d.toLocal());
+String pdfDate(DateTime d) => _pdfDate.format(toIst(d));
 
 /// Amount formatted for a PDF cell. Uses "Rs." rather than "₹" — the PDF's
 /// base font has no glyph for the rupee sign.

@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'format.dart';
+
 final DateFormat _fileStamp = DateFormat('yyyy-MM-dd');
 final DateFormat _cellDate = DateFormat('yyyy-MM-dd');
 
@@ -31,7 +33,7 @@ String buildCsv(List<String> header, List<List<Object?>> rows) {
   return buffer.toString();
 }
 
-String csvDate(DateTime d) => _cellDate.format(d.toLocal());
+String csvDate(DateTime d) => _cellDate.format(toIst(d));
 
 /// Writes [csv] to a temp file named "avs_<label>_<today>.csv" and opens the
 /// share sheet so the user can save it to Files, email it, etc.

@@ -133,6 +133,38 @@ void main() {
   });
 
   test(
+      'safePrice rounds UP from a fractional carryRate while in excess, and '
+      'profit uses that same rounded value, not the raw point value', () {
+    // Blend: (10*100 + 10*100.5)/20 = 100.25 (a genuinely fractional rate).
+    final result = QuickCheckResult.compute([
+      _txn('purchase', d1, 10, 100),
+      _txn('purchase', d2, 10, 100.5),
+    ]);
+    expect(result.isExcess, true);
+    expect(result.carryRate, closeTo(100.25, 1e-9)); // raw point value
+    expect(result.safePrice, 101); // ceil(100.25)
+    // If profit used the raw 100.25 it would be exactly 0 (0 sales - 2005
+    // spent + 20*100.25). Using the rounded 101 instead gives 15.
+    expect(result.profit, 15);
+  });
+
+  test(
+      'safePrice rounds DOWN from a fractional saleRate while in demand, and '
+      'profit uses that same rounded value, not the raw point value', () {
+    // Blend: (10*100 + 10*100.5)/20 = 100.25 (a genuinely fractional rate).
+    final result = QuickCheckResult.compute([
+      _txn('sale', d1, 10, 100),
+      _txn('sale', d2, 10, 100.5),
+    ]);
+    expect(result.isDemand, true);
+    expect(result.saleRate, closeTo(100.25, 1e-9)); // raw point value
+    expect(result.safePrice, 100); // floor(100.25)
+    // If profit used the raw 100.25 it would be exactly 0 (2005 received -
+    // 0 spent - 20*100.25). Using the rounded 100 instead gives 5.
+    expect(result.profit, 5);
+  });
+
+  test(
       'profit while in demand projects closing at saleRate, not carryRate: '
       'a clean round trip plus an oversold remainder should value that '
       'remainder against what it was sold for, not an unrelated purchase',

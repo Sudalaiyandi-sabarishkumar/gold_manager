@@ -50,6 +50,49 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
+Future<void> _refreshLedger(BuildContext context) async {
+  final state = context.read<AppState>();
+  final s = state.settings;
+  final qc = QuickCheckResult.compute(
+    state.transactions,
+    seedNetQtyGrams: s.quickCheckSeedNetQtyGrams,
+    seedCarryRate: s.quickCheckSeedCarryRate,
+    seedSaleRate: s.quickCheckSeedSaleRate,
+    seedPurchasesTotal: s.quickCheckSeedPurchasesTotal,
+    seedSalesTotal: s.quickCheckSeedSalesTotal,
+  );
+
+  final rate = await showDialog<double>(
+    context: context,
+    builder: (_) => _RefreshConfirmDialog(quickCheck: qc),
+  );
+  if (rate == null || !context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final res = await state.refreshLedger(
+      rate: (qc.isExcess || qc.isDemand) ? rate : null,
+    );
+    final prev = res['previousPosition'] as Map<String, dynamic>?;
+    final status = prev?['status'] as String? ?? 'balanced';
+    final usedRate = (prev?['rateUsed'] as num?)?.toDouble() ??
+        (prev?['safePrice'] as num?)?.toDouble() ??
+        0;
+    final msg = status == 'balanced'
+        ? 'Ledger reset. Nothing was carried forward.'
+        : 'Ledger reset. Carried forward as $status: '
+            '${grams((prev?['netQtyGrams'] as num?)?.abs().toDouble() ?? 0)} '
+            '@ ${inr(usedRate)}/g.';
+    messenger.showSnackBar(SnackBar(content: Text(msg)));
+  } on ApiException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Could not refresh the ledger')),
+    );
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -85,13 +128,15 @@ class DashboardScreen extends StatelessWidget {
               if (v == 'expenses') _open(context, const ExpensesScreen());
               if (v == 'settings') _open(context, const SettingsScreen());
               if (v == 'shrink') _shrink(context);
+              if (v == 'refresh') _refreshLedger(context);
               if (v == 'logout') context.read<AppState>().logout();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'expenses', child: Text('Miscellaneous')),
               PopupMenuItem(value: 'settings', child: Text('Opening balances')),
               PopupMenuDivider(),
-              PopupMenuItem(value: 'shrink', child: Text('Shrink')),
+              // PopupMenuItem(value: 'shrink', child: Text('Shrink')),
+              PopupMenuItem(value: 'refresh', child: Text('Reset')),
               PopupMenuItem(value: 'logout', child: Text('Log out')),
             ],
           ),
@@ -411,6 +456,120 @@ class _ShrinkConfirmDialogState extends State<_ShrinkConfirmDialog> {
         TextButton(
           onPressed: _matches ? () => Navigator.pop(context, true) : null,
           child: const Text('Shrink', style: TextStyle(color: GoldColors.loss)),
+        ),
+      ],
+    );
+  }
+}
+
+class _RefreshConfirmDialog extends StatefulWidget {
+  const _RefreshConfirmDialog({required this.quickCheck});
+  final QuickCheckResult quickCheck;
+
+  @override
+  State<_RefreshConfirmDialog> createState() => _RefreshConfirmDialogState();
+}
+
+class _RefreshConfirmDialogState extends State<_RefreshConfirmDialog> {
+  late final TextEditingController _rateController;
+  final _confirmController = TextEditingController();
+  bool _confirmMatches = false;
+
+  bool get _needsRate =>
+      widget.quickCheck.isExcess || widget.quickCheck.isDemand;
+
+  @override
+  void initState() {
+    super.initState();
+    final safe = widget.quickCheck.safePrice;
+    _rateController = TextEditingController(
+      text: safe > 0 ? safe.toStringAsFixed(0) : '',
+    );
+    _rateController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _rateController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  double? get _parsedRate => double.tryParse(_rateController.text.trim());
+
+  bool get _canConfirm {
+    if (!_confirmMatches) return false;
+    if (!_needsRate) return true;
+    final r = _parsedRate;
+    return r != null && r > 0;
+  }
+
+  void _onConfirmChanged(String v) {
+    final ok = v.trim().toLowerCase() == 'confirm';
+    if (ok != _confirmMatches) setState(() => _confirmMatches = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final qc = widget.quickCheck;
+    return AlertDialog(
+      backgroundColor: GoldColors.surface,
+      title: const Text('Reset the entire ledger?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            
+            const SizedBox(height: 12),
+            if (_needsRate) ...[
+              Text(
+                qc.isExcess
+                    ? 'Current excess of ${grams(qc.netQtyGrams.abs())} will '
+                        'be carried forward as a SALE at the rate below.'
+                    : 'Current demand of ${grams(qc.netQtyGrams.abs())} will '
+                        'be carried forward as a PURCHASE at the rate below.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _rateController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: qc.isExcess ? 'Sell rate (₹/g)' : 'Buy rate (₹/g)',
+                  hintText: 'Defaults to the safe price',
+                  errorText: _rateController.text.isNotEmpty &&
+                          (_parsedRate == null || _parsedRate! <= 0)
+                      ? 'Enter a rate greater than 0'
+                      : null,
+                ),
+              ),
+            ] else
+              const Text(
+                'Position is currently balanced — nothing will be carried forward.',
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _confirmController,
+              autofocus: true,
+              onChanged: _onConfirmChanged,
+              decoration:
+                  const InputDecoration(labelText: 'Type CONFIRM to proceed'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _canConfirm
+              ? () => Navigator.pop(context, _needsRate ? _parsedRate : 0.0)
+              : null,
+          child:
+              const Text('Reset', style: TextStyle(color: GoldColors.loss)),
         ),
       ],
     );
