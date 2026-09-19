@@ -8,6 +8,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-mem-secret';
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const { createApp } = require('./app');
 const { connectDb } = require('./config/db');
@@ -29,8 +30,9 @@ const PORT = process.env.PORT || 3000;
   const mem = await MongoMemoryServer.create();
   await connectDb(mem.getUri('gold_manager'));
 
-  const username = (process.env.SEED_USERNAME || 'mani').toLowerCase();
-  const password = process.env.SEED_PASSWORD || '1977';
+  const username = (process.env.SEED_USERNAME || 'sample').toLowerCase();
+  // Throwaway in-memory DB, so a fresh random password per run is fine.
+  const password = process.env.SEED_PASSWORD || crypto.randomBytes(9).toString('base64url');
 
   await User.findOneAndUpdate(
     { username },

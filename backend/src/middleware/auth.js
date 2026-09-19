@@ -8,7 +8,7 @@ module.exports = function auth(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Missing bearer token' });
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     return next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });

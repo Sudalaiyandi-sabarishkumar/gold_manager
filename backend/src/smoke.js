@@ -2,6 +2,7 @@
 //   node src/smoke.js
 // Exits non-zero on the first failed assertion.
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'smoke-secret';
+const SMOKE_PASSWORD = 'smoke-test-only-password'; // throwaway in-memory DB
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
@@ -41,7 +42,7 @@ async function main() {
 
   await User.findOneAndUpdate(
     { username: 'mani' },
-    { username: 'mani', passwordHash: await bcrypt.hash('1977', 10) },
+    { username: 'mani', passwordHash: await bcrypt.hash(SMOKE_PASSWORD, 10) },
     { upsert: true }
   );
   await Settings.findByIdAndUpdate(
@@ -64,9 +65,9 @@ async function main() {
   // --- auth ---
   let r = await POST('/api/auth/login', { 'Content-Type': 'application/json' }, {
     username: 'mani',
-    password: '1977',
+    password: SMOKE_PASSWORD,
   });
-  check('login mani/1977 -> token', r.status === 200 && typeof r.body.token === 'string');
+  check('login -> token', r.status === 200 && typeof r.body.token === 'string');
   const H = { Authorization: `Bearer ${r.body.token}`, 'Content-Type': 'application/json' };
 
   r = await POST('/api/auth/login', { 'Content-Type': 'application/json' }, {
