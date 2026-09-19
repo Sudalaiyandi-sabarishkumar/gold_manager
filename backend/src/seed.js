@@ -8,8 +8,7 @@ const Loan = require('./models/Loan');
 const Settings = require('./models/Settings');
 const { round2 } = require('./services/payments');
 
-const USERNAME = (process.env.SEED_USERNAME || 'mani').toLowerCase();
-const PASSWORD = process.env.SEED_PASSWORD || '1977';
+const USERNAME = (process.env.SEED_USERNAME || 'sample').toLowerCase();
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/gold_manager';
 
 const OPENING_CASH = 1500000;
@@ -83,7 +82,27 @@ function buildTxn(t) {
   };
 }
 
+// `seed` DELETES every transaction and loan and resets the login password.
+// It must never run against a real database by accident.
+function assertSafeToSeed(uri, password) {
+  if (!password || password.length < 4) {
+    throw new Error('Set SEED_PASSWORD to a random value of at least 4 characters.');
+  }
+  const m = /^mongodb(\+srv)?:\/\/(?:[^@/]*@)?([^/?]+)/.exec(uri);
+  const hosts = m ? m[2].split(',').map((h) => h.replace(/:\d+$/, '')) : [];
+  const local = !(m && m[1]) && hosts.length > 0 && hosts.every((h) =>
+    ['localhost', '127.0.0.1', '[::1]'].includes(h)
+  );
+  if (!local && process.env.ALLOW_REMOTE_SEED !== 'yes-wipe-everything') {
+    throw new Error(
+      'Refusing to seed a non-local database (this wipes all transactions and loans).'
+    );
+  }
+}
+
 async function seed() {
+  const PASSWORD = process.env.SEED_PASSWORD;
+  assertSafeToSeed(MONGO_URI, PASSWORD);
   await connectDb(MONGO_URI);
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
@@ -120,4 +139,12 @@ if (require.main === module) {
   });
 }
 
-module.exports = { SAMPLE, SAMPLE_LOANS, buildTxn, seed, OPENING_CASH, OPENING_GOLD_GRAMS };
+module.exports = {
+  SAMPLE,
+  SAMPLE_LOANS,
+  buildTxn,
+  seed,
+  assertSafeToSeed,
+  OPENING_CASH,
+  OPENING_GOLD_GRAMS,
+};

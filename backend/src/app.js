@@ -13,6 +13,10 @@ const expenseRoutes = require('./routes/expenses');
 
 function createApp() {
   const app = express();
+  app.disable('x-powered-by');
+  // Render (and most hosts) put one reverse proxy in front of the app. Trusting
+  // it lets rate limiting see the real client IP instead of the proxy's.
+  app.set('trust proxy', 1);
   app.use(cors());
   app.use(express.json());
 
