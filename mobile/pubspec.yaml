@@ -1,7 +1,7 @@
 name: gold_manager
 description: AVS — gold sale & purchase manager, stock and transaction ledger.
 publish_to: "none"
-version: 1.0.0+4
+version: 1.0.1+5
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
