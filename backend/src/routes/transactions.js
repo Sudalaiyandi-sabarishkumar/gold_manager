@@ -56,13 +56,16 @@ function byDateDesc(a, b) {
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
-// Reuse the existing spelling of a party name if one already exists
-// (case-insensitive), so the same person is not split by casing/whitespace.
-async function canonicalParty(name) {
+// Reuse the existing spelling of a party name if one already exists for this
+// user (case-insensitive), so the same person is not split by casing/whitespace.
+async function canonicalParty(name, userId) {
   const raw = (name || '').toString().trim();
   if (!raw) return '';
   const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const existing = await Transaction.findOne({ party: new RegExp(`^${escaped}$`, 'i') })
+  const existing = await Transaction.findOne({
+    userId,
+    party: new RegExp(`^${escaped}$`, 'i'),
+  })
     .select('party')
     .lean();
   return existing && existing.party ? existing.party : raw;
@@ -72,7 +75,11 @@ async function canonicalParty(name) {
 router.get(
   '/',
   ah(async (req, res) => {
-    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const uid = req.user.sub;
+    const [settings, all] = await Promise.all([
+      Settings.forUser(uid),
+      Transaction.find({ userId: uid }).lean(),
+    ]);
     const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
 
     let list = all.slice().sort(byDateDesc);
@@ -113,7 +120,11 @@ router.get(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const uid = req.user.sub;
+    const [settings, all] = await Promise.all([
+      Settings.forUser(uid),
+      Transaction.find({ userId: uid }).lean(),
+    ]);
     const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     const t = all.find((x) => String(x._id) === req.params.id);
     if (!t) return res.status(404).json({ error: 'Not found' });
@@ -128,6 +139,7 @@ router.post(
   '/',
   ah(async (req, res) => {
     const { type, date, weightGrams, ratePerGram, note, party, amountPaid } = req.body || {};
+    const uid = req.user.sub;
 
     if (type !== 'purchase' && type !== 'sale') {
       return res.status(400).json({ error: "type must be 'purchase' or 'sale'" });
@@ -140,7 +152,7 @@ router.post(
     const when = date ? new Date(date) : new Date();
     if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
 
-    const settings = await Settings.current();
+    const settings = await Settings.forUser(uid);
 
     if (settings.shrunkThroughDate && when < settings.shrunkThroughDate) {
       return res.status(422).json({
@@ -152,7 +164,10 @@ router.post(
     }
 
     if (type === 'sale') {
-      const [all, loans] = await Promise.all([Transaction.find().lean(), Loan.find().lean()]);
+      const [all, loans] = await Promise.all([
+        Transaction.find({ userId: uid }).lean(),
+        Loan.find({ userId: uid }).lean(),
+      ]);
       const available = computeBalances({
         openingCash: settings.openingCash,
         openingGoldGrams: settings.openingGoldGrams,
@@ -177,9 +192,10 @@ router.post(
       paidNow > 0.005 ? [{ amount: round2(paidNow), date: when, note: 'Initial payment' }] : [];
 
     const doc = await Transaction.create({
+      userId: uid,
       type,
       date: when,
-      party: await canonicalParty(party),
+      party: await canonicalParty(party, uid),
       weightGrams: w,
       ratePerGram: r,
       totalAmount: total,
@@ -187,7 +203,7 @@ router.post(
       payments,
     });
 
-    const all = await Transaction.find().lean();
+    const all = await Transaction.find({ userId: uid }).lean();
     const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.status(201).json(serialize(doc.toObject(), perTxn));
   })
@@ -200,7 +216,8 @@ router.post(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const doc = await Transaction.findById(req.params.id);
+    const uid = req.user.sub;
+    const doc = await Transaction.findOne({ _id: req.params.id, userId: uid });
     if (!doc) return res.status(404).json({ error: 'Not found' });
 
     const amt = Number(req.body && req.body.amount);
@@ -224,7 +241,10 @@ router.post(
     });
     await doc.save();
 
-    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const [settings, all] = await Promise.all([
+      Settings.forUser(uid),
+      Transaction.find({ userId: uid }).lean(),
+    ]);
     const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.status(201).json(serialize(doc.toObject(), perTxn));
   })
@@ -240,14 +260,18 @@ router.delete(
     ) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const doc = await Transaction.findById(req.params.id);
+    const uid = req.user.sub;
+    const doc = await Transaction.findOne({ _id: req.params.id, userId: uid });
     if (!doc || !doc.payments.id(req.params.paymentId)) {
       return res.status(404).json({ error: 'Not found' });
     }
     doc.payments.pull(req.params.paymentId);
     await doc.save();
 
-    const [settings, all] = await Promise.all([Settings.current(), Transaction.find().lean()]);
+    const [settings, all] = await Promise.all([
+      Settings.forUser(uid),
+      Transaction.find({ userId: uid }).lean(),
+    ]);
     const { perTxn } = replayStock(all, stockSeedFromSettings(settings));
     res.json(serialize(doc.toObject(), perTxn));
   })
@@ -260,7 +284,8 @@ router.delete(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const deleted = await Transaction.findByIdAndDelete(req.params.id);
+    const uid = req.user.sub;
+    const deleted = await Transaction.findOneAndDelete({ _id: req.params.id, userId: uid });
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   })
@@ -283,8 +308,9 @@ router.post(
       return res.status(400).json({ error: 'confirm must be true' });
     }
 
-    const settings = await Settings.current();
-    const all = await Transaction.find().lean();
+    const uid = req.user.sub;
+    const settings = await Settings.forUser(uid);
+    const all = await Transaction.find({ userId: uid }).lean();
     const ordered = sortChronologically(all);
 
     const now = new Date();
@@ -350,7 +376,7 @@ router.post(
     await settings.save();
 
     const prefixIds = prefix.map((t) => t._id);
-    const del = await Transaction.deleteMany({ _id: { $in: prefixIds } });
+    const del = await Transaction.deleteMany({ userId: uid, _id: { $in: prefixIds } });
 
     if (del.deletedCount !== prefixIds.length) {
       return res.status(500).json({
@@ -394,8 +420,9 @@ router.post(
       return res.status(400).json({ error: 'confirm must be true' });
     }
 
-    const settings = await Settings.current();
-    const all = await Transaction.find().lean();
+    const uid = req.user.sub;
+    const settings = await Settings.forUser(uid);
+    const all = await Transaction.find({ userId: uid }).lean();
 
     const qc = replayQuickCheck(all, quickCheckSeedFromSettings(settings));
     const netQty = qc.netQtyGrams;
@@ -415,7 +442,7 @@ router.post(
       rate = r;
     }
 
-    await Transaction.deleteMany({});
+    await Transaction.deleteMany({ userId: uid });
 
     settings.openingCash = 7500000;
     settings.openingGoldGrams = 500;
@@ -439,6 +466,7 @@ router.post(
       const total = round2(weight * rate);
 
       const doc = await Transaction.create({
+        userId: uid,
         type: isExcess ? 'purchase' : 'sale',
         date: today,
         party: isExcess ? 'Excess' : 'Demand',

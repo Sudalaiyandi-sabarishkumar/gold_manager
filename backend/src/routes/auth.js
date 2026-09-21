@@ -10,7 +10,7 @@ const router = express.Router();
 // Max 10 login attempts per IP per 15 minutes (successful logins count too,
 // which is fine for a single-user app).
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 1 * 60 * 1000,
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,

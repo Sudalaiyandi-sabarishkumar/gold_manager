@@ -14,11 +14,12 @@ const router = express.Router();
 router.get(
   '/',
   ah(async (req, res) => {
+    const uid = req.user.sub;
     const [settings, txns, loans, expenses] = await Promise.all([
-      Settings.current(),
-      Transaction.find().lean(),
-      Loan.find().lean(),
-      Expense.find().lean(),
+      Settings.forUser(uid),
+      Transaction.find({ userId: uid }).lean(),
+      Loan.find({ userId: uid }).lean(),
+      Expense.find({ userId: uid }).lean(),
     ]);
 
     const trade = replayStock(txns, stockSeedFromSettings(settings));

@@ -65,12 +65,13 @@ const SAMPLE_LOANS = [
   },
 ];
 
-function buildTxn(t) {
+function buildTxn(t, userId) {
   const total = round2(t.weightGrams * t.ratePerGram);
   const paid = t.paidFull ? total : Math.min(t.paid || 0, total);
   const payments =
     paid > 0 ? [{ amount: round2(paid), date: new Date(t.date), note: 'Initial payment' }] : [];
   return {
+    userId,
     type: t.type,
     date: new Date(t.date),
     party: t.party,
@@ -106,26 +107,28 @@ async function seed() {
   await connectDb(MONGO_URI);
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
-  await User.findOneAndUpdate(
+  const user = await User.findOneAndUpdate(
     { username: USERNAME },
     { username: USERNAME, passwordHash },
     { upsert: true, new: true }
   );
-  console.log(`[seed] user "${USERNAME}" ready`);
+  const userId = user._id;
+  console.log(`[seed] user "${USERNAME}" ready (id: ${userId})`);
 
+  // Per-user settings (keyed by userId string)
   await Settings.findByIdAndUpdate(
-    'app',
-    { _id: 'app', openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
+    String(userId),
+    { _id: String(userId), openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
     { upsert: true }
   );
   console.log(`[seed] opening: ₹${OPENING_CASH} + ${OPENING_GOLD_GRAMS} g`);
 
-  await Transaction.deleteMany({});
-  await Transaction.insertMany(SAMPLE.map(buildTxn));
+  await Transaction.deleteMany({ userId });
+  await Transaction.insertMany(SAMPLE.map((t) => buildTxn(t, userId)));
   console.log(`[seed] inserted ${SAMPLE.length} transactions`);
 
-  await Loan.deleteMany({});
-  await Loan.insertMany(SAMPLE_LOANS);
+  await Loan.deleteMany({ userId });
+  await Loan.insertMany(SAMPLE_LOANS.map((l) => ({ ...l, userId })));
   console.log(`[seed] inserted ${SAMPLE_LOANS.length} loans`);
 
   await mongoose.disconnect();

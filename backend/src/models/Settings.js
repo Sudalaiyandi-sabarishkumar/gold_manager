@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
-// Single document: the opening position everything is computed from.
+// One settings document per user. _id is the user's ObjectId (as string) so
+// there is no separate userId field needed — the document itself is the user.
 const settingsSchema = new mongoose.Schema(
   {
-    _id: { type: String, default: 'app' },
+    _id: { type: String }, // set to String(userId) on creation
     openingCash: { type: Number, default: 1500000, min: 0 },
     openingGoldGrams: { type: Number, default: 100, min: 0 },
 
@@ -23,8 +24,13 @@ const settingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-settingsSchema.statics.current = async function current() {
-  return (await this.findById('app')) || this.create({ _id: 'app' });
+/**
+ * Return (or upsert) the settings document for a given userId.
+ * Pass req.user.sub (the JWT subject, which equals String(user._id)).
+ */
+settingsSchema.statics.forUser = async function forUser(userId) {
+  const id = String(userId);
+  return (await this.findById(id)) || this.create({ _id: id });
 };
 
 module.exports = mongoose.model('Settings', settingsSchema);

@@ -9,3 +9,5 @@ node_modules/
 # Flutter build artifacts (also covered by mobile/.gitignore)
 build/
 .dart_tool/
+ADD_USER.md
+CLAUDE.md

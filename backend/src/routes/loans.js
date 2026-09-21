@@ -10,12 +10,12 @@ const ah = require('../lib/asyncHandler');
 
 const router = express.Router();
 
-async function available(kind) {
+async function available(kind, uid) {
   const [s, transactions, loans, expenses] = await Promise.all([
-    Settings.current(),
-    Transaction.find().lean(),
-    Loan.find().lean(),
-    Expense.find().lean(),
+    Settings.forUser(uid),
+    Transaction.find({ userId: uid }).lean(),
+    Loan.find({ userId: uid }).lean(),
+    Expense.find({ userId: uid }).lean(),
   ]);
   const b = computeBalances({
     openingCash: s.openingCash,
@@ -32,7 +32,8 @@ async function available(kind) {
 router.get(
   '/',
   ah(async (req, res) => {
-    const loans = await Loan.find().sort({ date: -1, createdAt: -1 }).lean();
+    const uid = req.user.sub;
+    const loans = await Loan.find({ userId: uid }).sort({ date: -1, createdAt: -1 }).lean();
     let list = loans.map((l) => serializeLoan(l));
 
     const { status, kind, q } = req.query;
@@ -57,7 +58,8 @@ router.get(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const loan = await Loan.findById(req.params.id).lean();
+    const uid = req.user.sub;
+    const loan = await Loan.findOne({ _id: req.params.id, userId: uid }).lean();
     if (!loan) return res.status(404).json({ error: 'Not found' });
     res.json(serializeLoan(loan));
   })
@@ -78,6 +80,7 @@ router.post(
       countStartDay,
       note,
     } = req.body || {};
+    const uid = req.user.sub;
 
     if (kind !== 'cash' && kind !== 'gold') {
       return res.status(400).json({ error: "kind must be 'cash' or 'gold'" });
@@ -95,7 +98,7 @@ router.post(
     const when = date ? new Date(date) : new Date();
     if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
 
-    const have = await available(kind);
+    const have = await available(kind, uid);
     if (p > have + 1e-6) {
       return res.status(422).json({
         error:
@@ -107,6 +110,7 @@ router.post(
     }
 
     const loan = await Loan.create({
+      userId: uid,
       kind,
       party: (party || '').toString().trim(),
       date: when,
@@ -128,7 +132,8 @@ router.post(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const loan = await Loan.findById(req.params.id);
+    const uid = req.user.sub;
+    const loan = await Loan.findOne({ _id: req.params.id, userId: uid });
     if (!loan) return res.status(404).json({ error: 'Not found' });
     if (loan.repayment) return res.status(409).json({ error: 'Loan is already repaid' });
 
@@ -167,7 +172,8 @@ router.delete(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const loan = await Loan.findById(req.params.id);
+    const uid = req.user.sub;
+    const loan = await Loan.findOne({ _id: req.params.id, userId: uid });
     if (!loan) return res.status(404).json({ error: 'Not found' });
     loan.repayment = null;
     await loan.save();
@@ -182,7 +188,8 @@ router.delete(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const deleted = await Loan.findByIdAndDelete(req.params.id);
+    const uid = req.user.sub;
+    const deleted = await Loan.findOneAndDelete({ _id: req.params.id, userId: uid });
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   })

@@ -40,18 +40,20 @@ async function main() {
   const mem = await MongoMemoryServer.create();
   await connectDb(mem.getUri('gold_manager'));
 
-  await User.findOneAndUpdate(
+  const user = await User.findOneAndUpdate(
     { username: 'mani' },
     { username: 'mani', passwordHash: await bcrypt.hash(SMOKE_PASSWORD, 10) },
-    { upsert: true }
+    { upsert: true, new: true }
   );
+  const userId = user._id;
   await Settings.findByIdAndUpdate(
-    'app',
-    { _id: 'app', openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
+    String(userId),
+    { _id: String(userId), openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
     { upsert: true }
   );
-  await Transaction.insertMany(SAMPLE.map(buildTxn));
-  await Loan.insertMany(SAMPLE_LOANS);
+  await Transaction.insertMany(SAMPLE.map((t) => buildTxn(t, userId)));
+  await Loan.insertMany(SAMPLE_LOANS.map((l) => ({ ...l, userId })));
+
 
   const app = createApp();
   const server = app.listen(0);

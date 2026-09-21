@@ -34,18 +34,21 @@ const PORT = process.env.PORT || 3000;
   // Throwaway in-memory DB, so a fresh random password per run is fine.
   const password = process.env.SEED_PASSWORD || crypto.randomBytes(9).toString('base64url');
 
-  await User.findOneAndUpdate(
+  const user = await User.findOneAndUpdate(
     { username },
     { username, passwordHash: await bcrypt.hash(password, 10) },
-    { upsert: true }
+    { upsert: true, new: true }
   );
+  const userId = user._id;
+
+  // Per-user settings (keyed by userId string)
   await Settings.findByIdAndUpdate(
-    'app',
-    { _id: 'app', openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
+    String(userId),
+    { _id: String(userId), openingCash: OPENING_CASH, openingGoldGrams: OPENING_GOLD_GRAMS },
     { upsert: true }
   );
-  await Transaction.insertMany(SAMPLE.map(buildTxn));
-  await Loan.insertMany(SAMPLE_LOANS);
+  await Transaction.insertMany(SAMPLE.map((t) => buildTxn(t, userId)));
+  await Loan.insertMany(SAMPLE_LOANS.map((l) => ({ ...l, userId })));
   console.log(
     `[dev-mem] seeded ${username}/${password} + ${SAMPLE.length} transactions + ${SAMPLE_LOANS.length} loans`
   );

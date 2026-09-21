@@ -13,12 +13,12 @@ const router = express.Router();
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
-async function cashInHand() {
+async function cashInHand(uid) {
   const [settings, transactions, loans, expenses] = await Promise.all([
-    Settings.current(),
-    Transaction.find().lean(),
-    Loan.find().lean(),
-    Expense.find().lean(),
+    Settings.forUser(uid),
+    Transaction.find({ userId: uid }).lean(),
+    Loan.find({ userId: uid }).lean(),
+    Expense.find({ userId: uid }).lean(),
   ]);
   return computeBalances({
     openingCash: settings.openingCash,
@@ -44,7 +44,8 @@ function serialize(e) {
 router.get(
   '/',
   ah(async (req, res) => {
-    let list = await Expense.find().sort({ date: -1, createdAt: -1 }).lean();
+    const uid = req.user.sub;
+    let list = await Expense.find({ userId: uid }).sort({ date: -1, createdAt: -1 }).lean();
 
     const { q, from, to } = req.query;
     if (from) {
@@ -69,13 +70,14 @@ router.post(
   '/',
   ah(async (req, res) => {
     const { date, amount, note } = req.body || {};
+    const uid = req.user.sub;
     const amt = Number(amount);
     if (!(amt > 0)) return res.status(400).json({ error: 'amount must be greater than 0' });
 
     const when = date ? new Date(date) : new Date();
     if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'date is invalid' });
 
-    const available = await cashInHand();
+    const available = await cashInHand(uid);
     if (amt > available + 1e-6) {
       return res.status(422).json({
         error: `Only ₹${available.toFixed(2)} cash in hand`,
@@ -84,6 +86,7 @@ router.post(
     }
 
     const doc = await Expense.create({
+      userId: uid,
       date: when,
       amount: round2(amt),
       note: (note || '').toString().trim(),
@@ -99,7 +102,8 @@ router.delete(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const deleted = await Expense.findByIdAndDelete(req.params.id);
+    const uid = req.user.sub;
+    const deleted = await Expense.findOneAndDelete({ _id: req.params.id, userId: uid });
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   })

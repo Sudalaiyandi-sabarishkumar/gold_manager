@@ -23,7 +23,7 @@ const shape = (s) => ({
 router.get(
   '/',
   ah(async (req, res) => {
-    res.json(shape(await Settings.current()));
+    res.json(shape(await Settings.forUser(req.user.sub)));
   })
 );
 
@@ -31,7 +31,7 @@ router.get(
 router.put(
   '/',
   ah(async (req, res) => {
-    const s = await Settings.current();
+    const s = await Settings.forUser(req.user.sub);
     const { openingCash, openingGoldGrams } = req.body || {};
 
     if (openingCash !== undefined) {

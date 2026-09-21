@@ -12,6 +12,8 @@ const paymentSchema = new mongoose.Schema(
 
 const transactionSchema = new mongoose.Schema(
   {
+    // Owner — every transaction belongs to exactly one user.
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     type: { type: String, enum: ['purchase', 'sale'], required: true },
     date: { type: Date, required: true },
     // Buyer (on a sale) or seller (on a purchase). Used for name search and
@@ -30,6 +32,6 @@ const transactionSchema = new mongoose.Schema(
 );
 
 // Ledger is replayed in chronological order; index the sort keys.
-transactionSchema.index({ date: 1, createdAt: 1 });
+transactionSchema.index({ userId: 1, date: 1, createdAt: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

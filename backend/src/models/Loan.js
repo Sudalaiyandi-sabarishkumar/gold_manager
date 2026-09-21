@@ -15,6 +15,8 @@ const repaymentSchema = new mongoose.Schema(
 //   e.g. cash: 100 per 'day' per 100000   |   gold: 1.5 per 'month' per 100
 const loanSchema = new mongoose.Schema(
   {
+    // Owner — every loan belongs to exactly one user.
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     kind: { type: String, enum: ['cash', 'gold'], required: true },
     party: { type: String, default: '', trim: true }, // borrower
     date: { type: Date, required: true },
@@ -31,6 +33,6 @@ const loanSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-loanSchema.index({ date: 1, createdAt: 1 });
+loanSchema.index({ userId: 1, date: 1, createdAt: 1 });
 
 module.exports = mongoose.model('Loan', loanSchema);

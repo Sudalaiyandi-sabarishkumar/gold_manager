@@ -14,6 +14,7 @@ const router = express.Router();
 router.post(
   '/settle',
   ah(async (req, res) => {
+    const uid = req.user.sub;
     const allocations = Array.isArray(req.body && req.body.allocations)
       ? req.body.allocations
       : [];
@@ -36,7 +37,8 @@ router.post(
       if (!(amt > 0)) {
         return res.status(400).json({ error: 'each amount must be greater than 0' });
       }
-      const doc = await Transaction.findById(a.transactionId);
+      // Scoped to current user — prevents settling another user's transaction.
+      const doc = await Transaction.findOne({ _id: a.transactionId, userId: uid });
       if (!doc) {
         return res.status(404).json({ error: `transaction ${a.transactionId} not found` });
       }
