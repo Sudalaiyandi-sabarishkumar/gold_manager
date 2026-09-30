@@ -153,134 +153,137 @@ class _HistoryScreenState extends State<HistoryScreen> {
             TextButton(onPressed: _clearAll, child: const Text('Clear')),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-            child: TextField(
-              controller: _search,
-              onChanged: (v) => setState(() => _query = v),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: 'Search name or note',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        onPressed: () => setState(() {
-                          _search.clear();
-                          _query = '';
-                        }),
-                      ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _DateChip(
-                    label: 'From',
-                    value: _from,
-                    onTap: _pickFrom,
-                    onClear: _from == null
-                        ? null
-                        : () => setState(() => _from = null),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _DateChip(
-                    label: 'To',
-                    value: _to,
-                    onTap: _pickTo,
-                    onClear:
-                        _to == null ? null : () => setState(() => _to = null),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'all', label: Text('All')),
-                  ButtonSegment(value: 'purchase', label: Text('Buy')),
-                  ButtonSegment(value: 'sale', label: Text('Sell')),
-                ],
-                selected: {_filter},
-                showSelectedIcon: false,
-                onSelectionChanged: (s) => setState(() => _filter = s.first),
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: GoldColors.surface2,
-                  foregroundColor: GoldColors.muted,
-                  selectedBackgroundColor: GoldColors.gold,
-                  selectedForegroundColor: GoldColors.goldInk,
-                  side: const BorderSide(color: GoldColors.hairline),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+              child: TextField(
+                controller: _search,
+                onChanged: (v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Search name or note',
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          onPressed: () => setState(() {
+                            _search.clear();
+                            _query = '';
+                          }),
+                        ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: rows.isEmpty
-                ? Center(
-                    child: Text(
-                      _hasFilters
-                          ? 'Nothing matches those filters'
-                          : 'No transactions yet',
-                      style: const TextStyle(color: GoldColors.faint),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _DateChip(
+                      label: 'From',
+                      value: _from,
+                      onTap: _pickFrom,
+                      onClear: _from == null
+                          ? null
+                          : () => setState(() => _from = null),
                     ),
-                  )
-                : RefreshIndicator(
-                    color: GoldColors.gold,
-                    onRefresh: () => context.read<AppState>().refresh(),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                      itemCount: order.length,
-                      itemBuilder: (context, i) {
-                        final key = order[i];
-                        final items = groups[key]!;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(top: 14, bottom: 2),
-                              child: Text(
-                                key.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  letterSpacing: 1.4,
-                                  color: GoldColors.goldDeep,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            ...items.map(
-                              (t) => TransactionTile(
-                                txn: t,
-                                showBalance: true,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => TransactionDetailScreen(
-                                        transactionId: t.id),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _DateChip(
+                      label: 'To',
+                      value: _to,
+                      onTap: _pickTo,
+                      onClear:
+                          _to == null ? null : () => setState(() => _to = null),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'all', label: Text('All')),
+                    ButtonSegment(value: 'purchase', label: Text('Buy')),
+                    ButtonSegment(value: 'sale', label: Text('Sell')),
+                  ],
+                  selected: {_filter},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _filter = s.first),
+                  style: SegmentedButton.styleFrom(
+                    backgroundColor: GoldColors.surface2,
+                    foregroundColor: GoldColors.muted,
+                    selectedBackgroundColor: GoldColors.gold,
+                    selectedForegroundColor: GoldColors.goldInk,
+                    side: const BorderSide(color: GoldColors.hairline),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: rows.isEmpty
+                  ? Center(
+                      child: Text(
+                        _hasFilters
+                            ? 'Nothing matches those filters'
+                            : 'No transactions yet',
+                        style: const TextStyle(color: GoldColors.faint),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: GoldColors.gold,
+                      onRefresh: () => context.read<AppState>().refresh(),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                        itemCount: order.length,
+                        itemBuilder: (context, i) {
+                          final key = order[i];
+                          final items = groups[key]!;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: 14, bottom: 2),
+                                child: Text(
+                                  key.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    letterSpacing: 1.4,
+                                    color: GoldColors.goldDeep,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      },
+                              ...items.map(
+                                (t) => TransactionTile(
+                                  txn: t,
+                                  showBalance: true,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => TransactionDetailScreen(
+                                          transactionId: t.id),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -120,197 +120,200 @@ class _AddLoanScreenState extends State<AddLoanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('New loan')),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'cash', label: Text('Cash loan')),
-                  ButtonSegment(value: 'gold', label: Text('Gold loan')),
-                ],
-                selected: {_kind},
-                showSelectedIcon: false,
-                onSelectionChanged: (s) => setState(() {
-                  _kind = s.first;
-                  _applyKindDefaults();
-                }),
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: GoldColors.surface2,
-                  foregroundColor: GoldColors.muted,
-                  selectedBackgroundColor: GoldColors.gold,
-                  selectedForegroundColor: GoldColors.goldInk,
-                  side: const BorderSide(color: GoldColors.hairline),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const _Label('BORROWER'),
-            const SizedBox(height: 6),
-            Autocomplete<String>(
-              optionsBuilder: (value) {
-                final names = context.read<AppState>().partyNames;
-                final q = value.text.trim().toLowerCase();
-                if (q.isEmpty) return names;
-                return names.where((n) => n.toLowerCase().contains(q));
-              },
-              onSelected: (v) => _party.text = v,
-              fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                return TextFormField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    hintText: 'type or pick a name',
-                    suffixIcon:
-                        Icon(Icons.arrow_drop_down, color: GoldColors.muted),
-                  ),
-                  onChanged: (v) => _party.text = v,
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            const _Label('DATE GIVEN'),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: _pickDate,
-              borderRadius: BorderRadius.circular(12),
-              child: InputDecorator(
-                decoration: const InputDecoration(),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(fmtDate(_date)),
-                    const Icon(Icons.calendar_today,
-                        size: 16, color: GoldColors.muted),
+      body: SafeArea(
+        top: false,
+        child: Form(
+          key: _form,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'cash', label: Text('Cash loan')),
+                    ButtonSegment(value: 'gold', label: Text('Gold loan')),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _Label(_isGold ? 'PRINCIPAL (G)' : 'PRINCIPAL (₹)'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _principal,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: '0'),
-              validator: (v) => (double.tryParse((v ?? '').trim()) ?? 0) <= 0
-                  ? 'Enter an amount'
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            const _Label('INTEREST'),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                SizedBox(
-                  width: 90,
-                  child: TextFormField(
-                    controller: _rate,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration:
-                        InputDecoration(suffixText: _isGold ? 'g' : '₹'),
-                    validator: (v) =>
-                        (double.tryParse((v ?? '').trim()) ?? -1) < 0
-                            ? '?'
-                            : null,
+                  selected: {_kind},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() {
+                    _kind = s.first;
+                    _applyKindDefaults();
+                  }),
+                  style: SegmentedButton.styleFrom(
+                    backgroundColor: GoldColors.surface2,
+                    foregroundColor: GoldColors.muted,
+                    selectedBackgroundColor: GoldColors.gold,
+                    selectedForegroundColor: GoldColors.goldInk,
+                    side: const BorderSide(color: GoldColors.hairline),
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Text('per', style: TextStyle(color: GoldColors.muted)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'day', label: Text('day')),
-                      ButtonSegment(value: 'month', label: Text('month')),
+              ),
+              const SizedBox(height: 18),
+              const _Label('BORROWER'),
+              const SizedBox(height: 6),
+              Autocomplete<String>(
+                optionsBuilder: (value) {
+                  final names = context.read<AppState>().partyNames;
+                  final q = value.text.trim().toLowerCase();
+                  if (q.isEmpty) return names;
+                  return names.where((n) => n.toLowerCase().contains(q));
+                },
+                onSelected: (v) => _party.text = v,
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      hintText: 'type or pick a name',
+                      suffixIcon:
+                          Icon(Icons.arrow_drop_down, color: GoldColors.muted),
+                    ),
+                    onChanged: (v) => _party.text = v,
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              const _Label('DATE GIVEN'),
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: _pickDate,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: const InputDecoration(),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(fmtDate(_date)),
+                      const Icon(Icons.calendar_today,
+                          size: 16, color: GoldColors.muted),
                     ],
-                    selected: {_unit},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (s) => setState(() => _unit = s.first),
-                    style: SegmentedButton.styleFrom(
-                      backgroundColor: GoldColors.surface2,
-                      foregroundColor: GoldColors.muted,
-                      selectedBackgroundColor: GoldColors.gold,
-                      selectedForegroundColor: GoldColors.goldInk,
-                      side: const BorderSide(color: GoldColors.hairline),
-                      visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _Label(_isGold ? 'PRINCIPAL (G)' : 'PRINCIPAL (₹)'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _principal,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(hintText: '0'),
+                validator: (v) => (double.tryParse((v ?? '').trim()) ?? 0) <= 0
+                    ? 'Enter an amount'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              const _Label('INTEREST'),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 90,
+                    child: TextFormField(
+                      controller: _rate,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration:
+                          InputDecoration(suffixText: _isGold ? 'g' : '₹'),
+                      validator: (v) =>
+                          (double.tryParse((v ?? '').trim()) ?? -1) < 0
+                              ? '?'
+                              : null,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('per every ',
-                    style: TextStyle(color: GoldColors.muted, fontSize: 13)),
-                SizedBox(
-                  width: 110,
-                  child: TextFormField(
-                    controller: _ref,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                        suffixText: _isGold ? 'g' : '₹', isDense: true),
-                    validator: (v) =>
-                        (double.tryParse((v ?? '').trim()) ?? 0) <= 0
-                            ? '?'
-                            : null,
+                  const SizedBox(width: 8),
+                  const Text('per', style: TextStyle(color: GoldColors.muted)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'day', label: Text('day')),
+                        ButtonSegment(value: 'month', label: Text('month')),
+                      ],
+                      selected: {_unit},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) => setState(() => _unit = s.first),
+                      style: SegmentedButton.styleFrom(
+                        backgroundColor: GoldColors.surface2,
+                        foregroundColor: GoldColors.muted,
+                        selectedBackgroundColor: GoldColors.gold,
+                        selectedForegroundColor: GoldColors.goldInk,
+                        side: const BorderSide(color: GoldColors.hairline),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
                   ),
-                ),
-                const Text('  of principal',
-                    style: TextStyle(color: GoldColors.muted, fontSize: 13)),
-              ],
-            ),
-            if (_p > 0 && _perPeriod > 0) ...[
+                ],
+              ),
               const SizedBox(height: 8),
-              Text(
-                '≈ ${_fmt(_perPeriod)} interest per $_unit on this loan',
-                style: const TextStyle(color: GoldColors.gain, fontSize: 12),
+              Row(
+                children: [
+                  const Text('per every ',
+                      style: TextStyle(color: GoldColors.muted, fontSize: 13)),
+                  SizedBox(
+                    width: 110,
+                    child: TextFormField(
+                      controller: _ref,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                          suffixText: _isGold ? 'g' : '₹', isDense: true),
+                      validator: (v) =>
+                          (double.tryParse((v ?? '').trim()) ?? 0) <= 0
+                              ? '?'
+                              : null,
+                    ),
+                  ),
+                  const Text('  of principal',
+                      style: TextStyle(color: GoldColors.muted, fontSize: 13)),
+                ],
+              ),
+              if (_p > 0 && _perPeriod > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '≈ ${_fmt(_perPeriod)} interest per $_unit on this loan',
+                  style: const TextStyle(color: GoldColors.gain, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 6),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: GoldColors.gold,
+                title: const Text('Count the day it was given',
+                    style: TextStyle(fontSize: 14)),
+                subtitle: const Text(
+                  'On = the start date is a full period',
+                  style: TextStyle(fontSize: 11, color: GoldColors.faint),
+                ),
+                value: _countStartDay,
+                onChanged: (v) => setState(() => _countStartDay = v),
+              ),
+              const SizedBox(height: 10),
+              const _Label('NOTE'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _note,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(hintText: 'optional'),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: GoldColors.goldInk,
+                        ),
+                      )
+                    : const Text('Record loan'),
               ),
             ],
-            const SizedBox(height: 6),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: GoldColors.gold,
-              title: const Text('Count the day it was given',
-                  style: TextStyle(fontSize: 14)),
-              subtitle: const Text(
-                'On = the start date is a full period',
-                style: TextStyle(fontSize: 11, color: GoldColors.faint),
-              ),
-              value: _countStartDay,
-              onChanged: (v) => setState(() => _countStartDay = v),
-            ),
-            const SizedBox(height: 10),
-            const _Label('NOTE'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _note,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'optional'),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: GoldColors.goldInk,
-                      ),
-                    )
-                  : const Text('Record loan'),
-            ),
-          ],
+          ),
         ),
       ),
     );

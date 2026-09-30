@@ -132,141 +132,132 @@ class TransactionDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(txn.isSale ? 'Sale' : 'Purchase')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        children: [
-          _Card(
-            children: [
-              _KvRow(
-                label: 'Type',
-                child: _Badge(
-                  text: txn.isPurchase ? 'BUY' : 'SELL',
-                  fg: txn.isPurchase ? GoldColors.gold : GoldColors.muted,
-                  bg: txn.isPurchase
-                      ? const Color(0x26F5C518)
-                      : GoldColors.raise,
-                ),
-              ),
-              _KvRow(label: 'Date', value: fmtDate(txn.date)),
-              _KvRow(
-                label: txn.partyRole,
-                value: txn.party.isEmpty ? '—' : txn.party,
-              ),
-              _KvRow(label: 'Weight', value: grams(txn.weightGrams)),
-              _KvRow(label: 'Rate / gram', value: inr(txn.ratePerGram)),
-              _KvRow(label: 'Total', value: inr(txn.totalAmount)),
-              if (txn.balanceAfter != null)
-                _KvRow(label: 'Stock after', value: grams(txn.balanceAfter!)),
-              if (txn.isSale && txn.profit != null)
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          children: [
+            _Card(
+              children: [
                 _KvRow(
-                  label: 'Profit vs avg cost',
-                  child: Text(
-                    signedInr(txn.profit!),
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w600,
-                      color:
-                          txn.profit! >= 0 ? GoldColors.gain : GoldColors.loss,
-                    ),
+                  label: 'Type',
+                  child: _Badge(
+                    text: txn.isPurchase ? 'BUY' : 'SELL',
+                    fg: txn.isPurchase ? GoldColors.gold : GoldColors.muted,
+                    bg: txn.isPurchase
+                        ? const Color(0x26F5C518)
+                        : GoldColors.raise,
                   ),
                 ),
-              _KvRow(
-                label: 'Note',
-                value: txn.note.isEmpty ? '—' : txn.note,
-                last: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              const _SectionLabel('SETTLEMENT'),
-              const SizedBox(width: 8),
-              PaymentStatusChip(status: txn.paymentStatus),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _Card(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _MiniStat(
-                          label: txn.isSale ? 'Received' : 'Paid',
-                          value: inr(txn.amountPaid),
-                          color: GoldColors.gain,
+                _KvRow(label: 'Date', value: fmtDate(txn.date)),
+                _KvRow(
+                  label: txn.partyRole,
+                  value: txn.party.isEmpty ? '—' : txn.party,
+                ),
+                _KvRow(label: 'Weight', value: grams(txn.weightGrams)),
+                _KvRow(label: 'Rate / gram', value: inr(txn.ratePerGram)),
+                _KvRow(label: 'Total', value: inr(txn.totalAmount)),
+                if (txn.balanceAfter != null)
+                  _KvRow(label: 'Stock after', value: grams(txn.balanceAfter!)),
+                if (txn.isSale && txn.profit != null)
+                _KvRow(
+                  label: 'Note',
+                  value: txn.note.isEmpty ? '—' : txn.note,
+                  last: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const _SectionLabel('SETTLEMENT'),
+                const SizedBox(width: 8),
+                PaymentStatusChip(status: txn.paymentStatus),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _Card(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _MiniStat(
+                            label: txn.isSale ? 'Received' : 'Paid',
+                            value: inr(txn.amountPaid),
+                            color: GoldColors.gain,
+                          ),
+                          _MiniStat(
+                            label: txn.isSale ? 'Buyer owes' : 'We owe',
+                            value: inr(txn.amountDue),
+                            color: txn.amountDue > 0.005
+                                ? GoldColors.loss
+                                : GoldColors.faint,
+                            alignEnd: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: txn.totalAmount <= 0
+                              ? 0
+                              : (txn.amountPaid / txn.totalAmount)
+                                  .clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: GoldColors.raise,
+                          valueColor:
+                              const AlwaysStoppedAnimation(GoldColors.gain),
                         ),
-                        _MiniStat(
-                          label: txn.isSale ? 'Buyer owes' : 'We owe',
-                          value: inr(txn.amountDue),
-                          color: txn.amountDue > 0.005
-                              ? GoldColors.loss
-                              : GoldColors.faint,
-                          alignEnd: true,
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (txn.payments.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(14, 8, 14, 14),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('No payments recorded',
+                          style:
+                              TextStyle(color: GoldColors.faint, fontSize: 12)),
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: txn.totalAmount <= 0
-                            ? 0
-                            : (txn.amountPaid / txn.totalAmount)
-                                .clamp(0.0, 1.0),
-                        minHeight: 6,
-                        backgroundColor: GoldColors.raise,
-                        valueColor:
-                            const AlwaysStoppedAnimation(GoldColors.gain),
+                  )
+                else
+                  ...txn.payments.map(
+                    (p) => _PaymentRow(
+                      payment: p,
+                      onDelete: () => _deletePayment(context, txn, p),
+                    ),
+                  ),
+                if (!txn.isSettled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _addPayment(context, txn),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(
+                        txn.isSale ? 'Record a receipt' : 'Record a payment',
                       ),
                     ),
-                  ],
-                ),
-              ),
-              if (txn.payments.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(14, 8, 14, 14),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('No payments recorded',
-                        style:
-                            TextStyle(color: GoldColors.faint, fontSize: 12)),
                   ),
-                )
-              else
-                ...txn.payments.map(
-                  (p) => _PaymentRow(
-                    payment: p,
-                    onDelete: () => _deletePayment(context, txn, p),
-                  ),
-                ),
-              if (!txn.isSettled)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: OutlinedButton.icon(
-                    onPressed: () => _addPayment(context, txn),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(
-                      txn.isSale ? 'Record a receipt' : 'Record a payment',
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: GoldColors.loss,
-              side: const BorderSide(color: Color(0xFF6A2F2B)),
+              ],
             ),
-            onPressed: () => _confirmDelete(context),
-            child: const Text('Delete entry'),
-          ),
-        ],
+            const SizedBox(height: 24),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: GoldColors.loss,
+                side: const BorderSide(color: Color(0xFF6A2F2B)),
+              ),
+              onPressed: () => _confirmDelete(context),
+              child: const Text('Delete entry'),
+            ),
+          ],
+        ),
       ),
     );
   }

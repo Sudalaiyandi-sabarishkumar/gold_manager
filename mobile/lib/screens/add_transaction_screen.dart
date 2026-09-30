@@ -115,202 +115,205 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.isSale ? 'Sell gold' : 'Buy gold')),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          children: [
-            const _Label('DATE'),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: _pickDate,
-              borderRadius: BorderRadius.circular(12),
-              child: InputDecorator(
-                decoration: const InputDecoration(),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(fmtDate(_date)),
-                    const Icon(Icons.calendar_today,
-                        size: 16, color: GoldColors.muted),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _Label(widget.isSale ? 'BUYER NAME' : 'SELLER NAME'),
-            const SizedBox(height: 6),
-            Autocomplete<String>(
-              optionsBuilder: (value) {
-                final names = context.read<AppState>().partyNames;
-                final q = value.text.trim().toLowerCase();
-                if (q.isEmpty) return names;
-                return names.where((n) => n.toLowerCase().contains(q));
-              },
-              onSelected: (v) => _party.text = v,
-              fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                return TextFormField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    hintText: 'type or pick a name (optional)',
-                    suffixIcon:
-                        Icon(Icons.arrow_drop_down, color: GoldColors.muted),
-                  ),
-                  onChanged: (v) => _party.text = v,
-                  onFieldSubmitted: (_) => onSubmit(),
-                );
-              },
-              optionsViewBuilder: (context, onSelected, options) => Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  color: GoldColors.surface,
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(10),
-                  child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxHeight: 220, maxWidth: 340),
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      children: options
-                          .map((o) => ListTile(
-                                dense: true,
-                                title: Text(o,
-                                    style: const TextStyle(
-                                        color: GoldColors.text)),
-                                onTap: () => onSelected(o),
-                              ))
-                          .toList(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const _Label('WEIGHT (G)'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _weight,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                hintText: '0.00',
-                helperText:
-                    widget.isSale ? 'In stock ${grams(pool.weight)}' : null,
-                helperStyle: const TextStyle(color: GoldColors.faint),
-                errorText: over ? 'Only ${grams(pool.weight)} available' : null,
-              ),
-              validator: (v) {
-                final d = double.tryParse((v ?? '').trim());
-                if (d == null || d <= 0) return 'Enter a weight';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            const _Label('TOTAL AMOUNT'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _totalAmount,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: '0'),
-              validator: (v) {
-                final d = double.tryParse((v ?? '').trim());
-                if (d == null || d <= 0) return 'Enter a total amount';
-                return null;
-              },
-            ),
-            const SizedBox(height: 18),
-            const Divider(),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const _Label('RATE / GRAM'),
-                Text(
-                  (_w > 0 && _total > 0) ? '${inr(_r)} / g' : '—',
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            if (widget.isSale) ...[
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _Label('EST. PROFIT VS AVG COST'),
-                  Text(
-                    (_w > 0 && _r > 0) ? signedInr(estProfit) : '—',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: estProfit >= 0 ? GoldColors.gain : GoldColors.loss,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 10),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: GoldColors.gold,
-              title: Text(
-                widget.isSale ? 'Received in full' : 'Paid in full',
-                style: const TextStyle(fontSize: 14),
-              ),
-              subtitle: Text(
-                widget.isSale
-                    ? 'Off = buyer still owes a balance'
-                    : 'Off = balance still owed to the seller',
-                style: const TextStyle(fontSize: 11, color: GoldColors.faint),
-              ),
-              value: _paidInFull,
-              onChanged: (v) => setState(() {
-                _paidInFull = v;
-                _paid.text = v || _total <= 0 ? '' : _total.toStringAsFixed(0);
-              }),
-            ),
-            if (!_paidInFull) ...[
+      body: SafeArea(
+        top: false,
+        child: Form(
+          key: _form,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            children: [
+              const _Label('DATE'),
               const SizedBox(height: 6),
-              _Label(widget.isSale ? 'AMOUNT RECEIVED NOW' : 'AMOUNT PAID NOW'),
+              InkWell(
+                onTap: _pickDate,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: const InputDecoration(),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(fmtDate(_date)),
+                      const Icon(Icons.calendar_today,
+                          size: 16, color: GoldColors.muted),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _Label(widget.isSale ? 'BUYER NAME' : 'SELLER NAME'),
+              const SizedBox(height: 6),
+              Autocomplete<String>(
+                optionsBuilder: (value) {
+                  final names = context.read<AppState>().partyNames;
+                  final q = value.text.trim().toLowerCase();
+                  if (q.isEmpty) return names;
+                  return names.where((n) => n.toLowerCase().contains(q));
+                },
+                onSelected: (v) => _party.text = v,
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      hintText: 'type or pick a name (optional)',
+                      suffixIcon:
+                          Icon(Icons.arrow_drop_down, color: GoldColors.muted),
+                    ),
+                    onChanged: (v) => _party.text = v,
+                    onFieldSubmitted: (_) => onSubmit(),
+                  );
+                },
+                optionsViewBuilder: (context, onSelected, options) => Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    color: GoldColors.surface,
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(10),
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxHeight: 220, maxWidth: 340),
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        children: options
+                            .map((o) => ListTile(
+                                  dense: true,
+                                  title: Text(o,
+                                      style: const TextStyle(
+                                          color: GoldColors.text)),
+                                  onTap: () => onSelected(o),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _Label('WEIGHT (G)'),
               const SizedBox(height: 6),
               TextFormField(
-                controller: _paid,
+                controller: _weight,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  hintText: '0',
-                  helperText: 'Balance due ${inr(due)}',
-                  helperStyle: const TextStyle(color: GoldColors.loss),
+                  hintText: '0.00',
+                  helperText:
+                      widget.isSale ? 'In stock ${grams(pool.weight)}' : null,
+                  helperStyle: const TextStyle(color: GoldColors.faint),
+                  errorText: over ? 'Only ${grams(pool.weight)} available' : null,
                 ),
+                validator: (v) {
+                  final d = double.tryParse((v ?? '').trim());
+                  if (d == null || d <= 0) return 'Enter a weight';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              const _Label('TOTAL AMOUNT'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _totalAmount,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(hintText: '0'),
+                validator: (v) {
+                  final d = double.tryParse((v ?? '').trim());
+                  if (d == null || d <= 0) return 'Enter a total amount';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 18),
+              const Divider(),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _Label('RATE / GRAM'),
+                  Text(
+                    (_w > 0 && _total > 0) ? '${inr(_r)} / g' : '—',
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              if (widget.isSale) ...[
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const _Label('EST. PROFIT VS AVG COST'),
+                    Text(
+                      (_w > 0 && _r > 0) ? signedInr(estProfit) : '—',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: estProfit >= 0 ? GoldColors.gain : GoldColors.loss,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: GoldColors.gold,
+                title: Text(
+                  widget.isSale ? 'Received in full' : 'Paid in full',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                subtitle: Text(
+                  widget.isSale
+                      ? 'Off = buyer still owes a balance'
+                      : 'Off = balance still owed to the seller',
+                  style: const TextStyle(fontSize: 11, color: GoldColors.faint),
+                ),
+                value: _paidInFull,
+                onChanged: (v) => setState(() {
+                  _paidInFull = v;
+                  _paid.text = v || _total <= 0 ? '' : _total.toStringAsFixed(0);
+                }),
+              ),
+              if (!_paidInFull) ...[
+                const SizedBox(height: 6),
+                _Label(widget.isSale ? 'AMOUNT RECEIVED NOW' : 'AMOUNT PAID NOW'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _paid,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    helperText: 'Balance due ${inr(due)}',
+                    helperStyle: const TextStyle(color: GoldColors.loss),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const _Label('NOTE'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _note,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(hintText: 'bill no., remarks'),
+              ),
+              const SizedBox(height: 26),
+              FilledButton(
+                onPressed: (_saving || over) ? null : () => _save(pool.weight),
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: GoldColors.goldInk,
+                        ),
+                      )
+                    : Text(widget.isSale ? 'Save sale' : 'Save purchase'),
               ),
             ],
-            const SizedBox(height: 16),
-            const _Label('NOTE'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _note,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'bill no., remarks'),
-            ),
-            const SizedBox(height: 26),
-            FilledButton(
-              onPressed: (_saving || over) ? null : () => _save(pool.weight),
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: GoldColors.goldInk,
-                      ),
-                    )
-                  : Text(widget.isSale ? 'Save sale' : 'Save purchase'),
-            ),
-          ],
+          ),
         ),
       ),
     );
