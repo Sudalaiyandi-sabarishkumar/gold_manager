@@ -45,7 +45,7 @@ class TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${grams(txn.weightGrams)} @ ${inr(txn.ratePerGram)}',
+                    '${grams(txn.weightGrams)}@${inr(txn.ratePerGram)}',
                     style:
                         const TextStyle(fontSize: 13, color: GoldColors.text),
                     maxLines: 2,
