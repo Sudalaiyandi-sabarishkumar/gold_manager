@@ -96,141 +96,144 @@ class LoanDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${loan.isGold ? 'Gold' : 'Cash'} loan'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        children: [
-          _Card(children: [
-            _KvRow(
-              label: 'Kind',
-              child: _Badge(text: loan.isGold ? 'GOLD' : 'CASH'),
-            ),
-            _KvRow(
-                label: 'Borrower',
-                value: loan.party.isEmpty ? '—' : loan.party),
-            _KvRow(label: 'Given on', value: fmtDate(loan.date)),
-            _KvRow(label: 'Principal', value: loan.amount(loan.principal)),
-            _KvRow(label: 'Interest', value: loan.rateLabel),
-            _KvRow(
-              label: 'Start day counts',
-              value: loan.countStartDay ? 'Yes' : 'No',
-            ),
-            _KvRow(
-              label: 'Note',
-              value: loan.note.isEmpty ? '—' : loan.note,
-              last: true,
-            ),
-          ]),
-          const SizedBox(height: 20),
-          if (loan.isOpen) ...[
-            const _SectionLabel('OUTSTANDING'),
-            const SizedBox(height: 8),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          children: [
             _Card(children: [
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _Mini(
-                            label: '${loan.daysElapsed} days elapsed',
-                            value: loan.amount(loan.principal),
-                            sub: 'principal'),
-                        _Mini(
-                          label: 'interest so far',
-                          value: loan.amount(loan.accruedInterest),
-                          sub: 'accrued',
-                          color: GoldColors.gain,
-                          alignEnd: true,
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 22),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('They owe you',
-                            style: TextStyle(color: GoldColors.muted)),
-                        Text(
-                          loan.amount(loan.outstanding),
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: GoldColors.loss,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => _repay(context, loan),
-              child: const Text('Record repayment'),
-            ),
-          ] else ...[
-            const _SectionLabel('REPAID'),
-            const SizedBox(height: 8),
-            _Card(children: [
-              _KvRow(label: 'Repaid on', value: fmtDate(loan.repayment!.date)),
               _KvRow(
-                label: 'Principal returned',
-                value: loan.amount(loan.repayment!.principalReturned),
+                label: 'Kind',
+                child: _Badge(text: loan.isGold ? 'GOLD' : 'CASH'),
               ),
               _KvRow(
-                label: 'Interest received',
-                child: Text(
-                  loan.amount(loan.repayment!.interestPaid),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: GoldColors.gain,
-                  ),
-                ),
+                  label: 'Borrower',
+                  value: loan.party.isEmpty ? '—' : loan.party),
+              _KvRow(label: 'Given on', value: fmtDate(loan.date)),
+              _KvRow(label: 'Principal', value: loan.amount(loan.principal)),
+              _KvRow(label: 'Interest', value: loan.rateLabel),
+              _KvRow(
+                label: 'Start day counts',
+                value: loan.countStartDay ? 'Yes' : 'No',
               ),
               _KvRow(
                 label: 'Note',
-                value:
-                    loan.repayment!.note.isEmpty ? '—' : loan.repayment!.note,
+                value: loan.note.isEmpty ? '—' : loan.note,
                 last: true,
               ),
             ]),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            if (loan.isOpen) ...[
+              const _SectionLabel('OUTSTANDING'),
+              const SizedBox(height: 8),
+              _Card(children: [
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _Mini(
+                              label: '${loan.daysElapsed} days elapsed',
+                              value: loan.amount(loan.principal),
+                              sub: 'principal'),
+                          _Mini(
+                            label: 'interest so far',
+                            value: loan.amount(loan.accruedInterest),
+                            sub: 'accrued',
+                            color: GoldColors.gain,
+                            alignEnd: true,
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('They owe you',
+                              style: TextStyle(color: GoldColors.muted)),
+                          Text(
+                            loan.amount(loan.outstanding),
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: GoldColors.loss,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => _repay(context, loan),
+                child: const Text('Record repayment'),
+              ),
+            ] else ...[
+              const _SectionLabel('REPAID'),
+              const SizedBox(height: 8),
+              _Card(children: [
+                _KvRow(label: 'Repaid on', value: fmtDate(loan.repayment!.date)),
+                _KvRow(
+                  label: 'Principal returned',
+                  value: loan.amount(loan.repayment!.principalReturned),
+                ),
+                _KvRow(
+                  label: 'Interest received',
+                  child: Text(
+                    loan.amount(loan.repayment!.interestPaid),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      color: GoldColors.gain,
+                    ),
+                  ),
+                ),
+                _KvRow(
+                  label: 'Note',
+                  value:
+                      loan.repayment!.note.isEmpty ? '—' : loan.repayment!.note,
+                  last: true,
+                ),
+              ]),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () => _confirm(
+                  context,
+                  'Reopen this loan?',
+                  'It goes back to outstanding and interest resumes accruing.',
+                  'Reopen',
+                  () => context.read<AppState>().reopenLoan(loan.id),
+                  'Loan reopened',
+                ),
+                child: const Text('Reopen'),
+              ),
+            ],
+            const SizedBox(height: 24),
             OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: GoldColors.loss,
+                side: const BorderSide(color: Color(0xFF6A2F2B)),
+              ),
               onPressed: () => _confirm(
                 context,
-                'Reopen this loan?',
-                'It goes back to outstanding and interest resumes accruing.',
-                'Reopen',
-                () => context.read<AppState>().reopenLoan(loan.id),
-                'Loan reopened',
+                'Delete this loan?',
+                'This removes it entirely and recomputes your balances.',
+                'Delete',
+                () async {
+                  await context.read<AppState>().deleteLoan(loan.id);
+                  navigator.pop();
+                },
+                'Loan deleted',
               ),
-              child: const Text('Reopen'),
+              child: const Text('Delete loan'),
             ),
           ],
-          const SizedBox(height: 24),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: GoldColors.loss,
-              side: const BorderSide(color: Color(0xFF6A2F2B)),
-            ),
-            onPressed: () => _confirm(
-              context,
-              'Delete this loan?',
-              'This removes it entirely and recomputes your balances.',
-              'Delete',
-              () async {
-                await context.read<AppState>().deleteLoan(loan.id);
-                navigator.pop();
-              },
-              'Loan deleted',
-            ),
-            child: const Text('Delete loan'),
-          ),
-        ],
+        ),
       ),
     );
   }

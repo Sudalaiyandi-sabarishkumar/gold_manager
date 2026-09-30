@@ -199,202 +199,205 @@ class _QuickCheckScreenState extends State<QuickCheckScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Quick check')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: GoldColors.surface2,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: GoldColors.hairline),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('BASE LIMIT',
-                            style: TextStyle(
-                                fontSize: 11,
-                                letterSpacing: 1.2,
-                                color: GoldColors.muted,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text(grams(kQuickCheckBaseLimitGrams),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                            color: statusColor.withValues(alpha: 0.5)),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: GoldColors.surface2,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: GoldColors.hairline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('BASE LIMIT',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  letterSpacing: 1.2,
+                                  color: GoldColors.muted,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text(grams(kQuickCheckBaseLimitGrams),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                        ],
                       ),
-                      child: Text(
-                        statusLabel.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text('EXCESS / DEMAND WEIGHT',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        color: GoldColors.muted,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  '${result.isDemand ? '−' : '+'}${grams(result.netQtyGrams.abs())}',
-                  style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  result.isExcess
-                      ? 'SAFE TO SELL ABOVE'
-                      : (result.isDemand
-                          ? 'SAFE TO BUY BELOW'
-                          : 'SAFE PRICE'),
-                  style: const TextStyle(
-                      fontSize: 11,
-                      letterSpacing: 1.2,
-                      color: GoldColors.muted,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  hasSafePrice ? '${inr(result.safePrice)} / g' : '—',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 20),
-                const Text('EXCESS / DEMAND AMOUNT',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        color: GoldColors.muted,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  // Inverted vs. the gold quantity: gold excess means cash
-                  // was spent to buy it (a cash demand), and gold demand
-                  // means more cash came in from selling than was spent (a
-                  // cash excess). Uses safePrice so excess is valued at
-                  // carryRate and demand at saleRate, matching "SAFE ...
-                  // BELOW/ABOVE" and "PROFIT" above.
-                  hasSafePrice
-                      ? signedInr(-(result.safePrice * result.netQtyGrams))
-                      : '—',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: result.isExcess
-                          ? GoldColors.loss
-                          : (result.isDemand
-                              ? GoldColors.gain
-                              : GoldColors.muted)),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Text('PROFIT',
-                        style: TextStyle(
-                            fontSize: 11,
-                            letterSpacing: 1.2,
-                            color: GoldColors.muted,
-                            fontWeight: FontWeight.w600)),
-                    if (usingManualRate) ...[
-                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(999),
                           border: Border.all(
-                              color: GoldColors.gold.withValues(alpha: 0.5)),
+                              color: statusColor.withValues(alpha: 0.5)),
                         ),
-                        child: const Text(
-                          'MANUAL',
+                        child: Text(
+                          statusLabel.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
-                            color: GoldColors.gold,
+                            color: statusColor,
                           ),
                         ),
                       ),
                     ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  signedInr(displayedProfit),
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: displayedProfit >= 0
-                        ? GoldColors.gain
-                        : GoldColors.loss,
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _manualRate,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 14),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    labelText: 'Simulate at rate/g (optional)',
-                    hintText: 'Leave blank to use the safe price',
+                  const SizedBox(height: 20),
+                  const Text('EXCESS / DEMAND WEIGHT',
+                      style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          color: GoldColors.muted,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${result.isDemand ? '−' : '+'}${grams(result.netQtyGrams.abs())}',
+                    style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '${result.txnCount} purchase/sale entries',
-                  style: const TextStyle(
-                      fontSize: 12, color: GoldColors.faint),
-                ),
-              ],
-            ),
-          ),
-          if (newestFirst.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            const Text(
-              'ENTRIES',
-              style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: GoldColors.muted,
-                  fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            ...newestFirst.map(
-              (t) => TransactionTile(
-                txn: t,
-                showBalance: false,
+                  const SizedBox(height: 20),
+                  Text(
+                    result.isExcess
+                        ? 'SAFE TO SELL ABOVE'
+                        : (result.isDemand
+                            ? 'SAFE TO BUY BELOW'
+                            : 'SAFE PRICE'),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 1.2,
+                        color: GoldColors.muted,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasSafePrice ? '${inr(result.safePrice)} / g' : '—',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('EXCESS / DEMAND AMOUNT',
+                      style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          color: GoldColors.muted,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    // Inverted vs. the gold quantity: gold excess means cash
+                    // was spent to buy it (a cash demand), and gold demand
+                    // means more cash came in from selling than was spent (a
+                    // cash excess). Uses safePrice so excess is valued at
+                    // carryRate and demand at saleRate, matching "SAFE ...
+                    // BELOW/ABOVE" and "PROFIT" above.
+                    hasSafePrice
+                        ? signedInr(-(result.safePrice * result.netQtyGrams))
+                        : '—',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: result.isExcess
+                            ? GoldColors.loss
+                            : (result.isDemand
+                                ? GoldColors.gain
+                                : GoldColors.muted)),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Text('PROFIT',
+                          style: TextStyle(
+                              fontSize: 11,
+                              letterSpacing: 1.2,
+                              color: GoldColors.muted,
+                              fontWeight: FontWeight.w600)),
+                      if (usingManualRate) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                                color: GoldColors.gold.withValues(alpha: 0.5)),
+                          ),
+                          child: const Text(
+                            'MANUAL',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: GoldColors.gold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    signedInr(displayedProfit),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: displayedProfit >= 0
+                          ? GoldColors.gain
+                          : GoldColors.loss,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _manualRate,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Simulate at rate/g (optional)',
+                      hintText: 'Leave blank to use the safe price',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${result.txnCount} purchase/sale entries',
+                    style: const TextStyle(
+                        fontSize: 12, color: GoldColors.faint),
+                  ),
+                ],
               ),
             ),
+            if (newestFirst.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const Text(
+                'ENTRIES',
+                style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    color: GoldColors.muted,
+                    fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              ...newestFirst.map(
+                (t) => TransactionTile(
+                  txn: t,
+                  showBalance: false,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
