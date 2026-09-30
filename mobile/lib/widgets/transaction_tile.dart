@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../theme.dart';
 import '../utils/format.dart';
-import 'payment_status_chip.dart';
+
 
 class TransactionTile extends StatelessWidget {
   const TransactionTile({
@@ -45,7 +45,7 @@ class TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${grams(txn.weightGrams)}@${inr(txn.ratePerGram)}',
+                    '${gramsWithoutG(txn.weightGrams)} | ${inr(txn.ratePerGram)}',
                     style:
                         const TextStyle(fontSize: 13, color: GoldColors.text),
                     maxLines: 2,

@@ -32,6 +32,7 @@ DateTime toIst(DateTime instant) => instant.toUtc().add(_istOffset);
 
 String inr(num n) => _inr0.format(n);
 String grams(num n) => '${_grams.format(n)} g';
+String gramsWithoutG(num n) => _grams.format(n);
 
 /// "+₹1,200" / "−₹350" using a real minus sign.
 String signedInr(num n) => (n >= 0 ? '+' : '−') + inr(n.abs());
