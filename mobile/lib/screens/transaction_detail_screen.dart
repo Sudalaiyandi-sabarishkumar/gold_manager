@@ -160,18 +160,6 @@ class TransactionDetailScreen extends StatelessWidget {
                 if (txn.balanceAfter != null)
                   _KvRow(label: 'Stock after', value: grams(txn.balanceAfter!)),
                 if (txn.isSale && txn.profit != null)
-                  _KvRow(
-                    label: 'Profit vs avg cost',
-                    child: Text(
-                      signedInr(txn.profit!),
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w600,
-                        color:
-                            txn.profit! >= 0 ? GoldColors.gain : GoldColors.loss,
-                      ),
-                    ),
-                  ),
                 _KvRow(
                   label: 'Note',
                   value: txn.note.isEmpty ? '—' : txn.note,
